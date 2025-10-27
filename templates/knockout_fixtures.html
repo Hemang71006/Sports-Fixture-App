@@ -1,339 +1,437 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Professional Knockout Bracket</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-<style>
-body.fixtures-body {
-    background: linear-gradient(135deg, #43cea2, #185a9d);
-    min-height: 100vh;
-    margin: 0;
-    padding-bottom: 80px; /* space for sticky buttons */
-}
+  <head>
+    <meta charset="UTF-8" />
+    <title>Professional Knockout Bracket</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='style.css') }}"
+    />
+    <style>
+      body.fixtures-body {
+        background: linear-gradient(135deg, #43cea2, #185a9d);
+        min-height: 100vh;
+        margin: 0;
+        padding-bottom: 80px; /* space for sticky buttons */
+      }
 
-#bracket-wrapper {
-    position: relative;
-    margin: 20px auto;
-    display: flex;
-    justify-content: center;
-    padding: 20px 0;
-}
+      #bracket-wrapper {
+        position: relative;
+        margin: 20px auto;
+        display: flex;
+        justify-content: center;
+        padding: 20px 0;
+      }
 
-.fixture-round {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin: 0 40px;
-}
+      .fixture-round {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin: 0 40px;
+      }
 
-.round-title {
-    font-weight: bold;
-    margin-bottom: 15px;
-    color: #fff;
-    text-shadow: 1px 1px 2px #000;
-}
+      .round-title {
+        font-weight: bold;
+        margin-bottom: 15px;
+        color: #fff;
+        text-shadow: 1px 1px 2px #000;
+      }
 
-.match-card {
-    background: #fff;
-    padding: 10px 14px;
-    border-radius: 8px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-    min-width: 120px;
-    text-align: center;
-    position: absolute;
-    line-height: 1.2; 
-    margin-bottom: 5px; 
-}
-.match-card.bye-match {
-    /* Optional: Add specific styling for bye matches if needed */
-}
+      .match-card {
+        background: #fff;
+        padding: 10px 14px;
+        border-radius: 8px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        min-width: 120px;
+        text-align: center;
+        position: absolute;
+        line-height: 1.2;
+        margin-bottom: 5px;
+      }
+      .match-card.bye-match {
+        opacity: 0.95;
+        font-style: italic;
+      }
 
-svg#connectors {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: 0;
-}
-
-/* Buttons sticky at bottom */
-.btn-bottom {
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 100;
-}
-
-/* Connector lines */
-svg#connectors path {
-    stroke: #ff6a00; /* bright orange */
-    stroke-width: 2;
-    fill: none;
-}
-
-/* Print-specific styling (kept only for clean print of fixtures) */
-@media print {
-    body * {
-        visibility: hidden;
-    }
-    #bracket-wrapper, #bracket-wrapper * {
-        visibility: visible;
-    }
-    #bracket-wrapper {
+      svg#connectors {
         position: absolute;
         top: 0;
         left: 0;
         width: 100%;
-        background: linear-gradient(135deg, #e0eafc, #cfdef3);
-        padding: 20px;
-    }
-    .btn-bottom {
-        display: none;
-    }
-}
-</style>
-</head>
-<body class="fixtures-body">
+        height: 100%;
+        pointer-events: none;
+        z-index: 0;
+      }
 
-<div class="container-fluid text-center">
-    <h1 class="mb-4">🏆 {{ tournament_name }}</h1>
-    <h2 class="mb-4">{{ ttype|capitalize }} Fixtures</h2>
+      /* Buttons sticky at bottom */
+      .btn-bottom {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 100;
+      }
 
-    {% if fixtures_rounds|first is mapping %}
-    {% for pool in fixtures_rounds %}
-        <h3>{{ pool.name }}</h3>
-        <div id="bracket-wrapper-{{ loop.index }}">
-            {% set total_rounds = pool.bracket|length %}
-            {% set round_matches = pool.bracket %}
-            {% for rnd_idx in range(total_rounds) %}
-                {% set matches = round_matches[rnd_idx] %}
-                <div class="fixture-round" data-round="{{ rnd_idx }}">
-                    <div class="round-title">
-                        {% if rnd_idx == total_rounds - 1 %}
-                            Final
-                        {% elif rnd_idx == total_rounds - 2 %}
-                            Semi Final
-                        {% elif rnd_idx == total_rounds - 3 %}
-                            Quarter Final
-                        {% elif rnd_idx == total_rounds - 4 %}
-                            Pre-Quarter
-                        {% else %}
-                            Round {{ rnd_idx + 1 }}
-                        {% endif %}
-                    </div>
-                    {% for match_idx in range(matches|length) %}
-                        <div class="match-card {% if matches[match_idx][1] is none %}bye-match{% endif %}" data-match="{{ match_idx }}" data-round="{{ rnd_idx }}">
-                            {% if matches[match_idx][1] is none %}
-                                {{ matches[match_idx][0] }}
-                            {% else %}
-                                {{ matches[match_idx][0] }} <strong>vs</strong> {{ matches[match_idx][1] }}
-                            {% endif %}
-                        </div>
-                    {% endfor %}
-                </div>
-            {% endfor %}
-            <svg id="connectors-{{ loop.index }}">
-                <defs>
-                    <marker id="arrow" markerWidth="10" markerHeight="10" refX="10" refY="3"
-                      orient="auto" markerUnits="strokeWidth">
-                        <path d="M0,0 L0,6 L9,3 z" fill="#ff6a00"/>
-                    </marker>
-                </defs>
-            </svg>
+      /* Connector lines */
+      svg#connectors path {
+        stroke: #ff6a00; /* bright orange */
+        stroke-width: 2;
+        fill: none;
+      }
+
+      /* Print-specific styling (kept only for clean print of fixtures) */
+      @media print {
+        body * {
+          visibility: hidden;
+        }
+        #bracket-wrapper,
+        #bracket-wrapper * {
+          visibility: visible;
+        }
+        #bracket-wrapper {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          background: linear-gradient(135deg, #e0eafc, #cfdef3);
+          padding: 20px;
+        }
+        .btn-bottom {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body class="fixtures-body">
+    <div class="container-fluid text-center">
+      <h1 class="mb-4">🏆 {{ tournament_name }}</h1>
+      <h2 class="mb-4">{{ ttype|capitalize }} Fixtures</h2>
+
+      <!-- html2canvas is required for PNG export; include always so pools view can export -->
+      <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+      {% if fixtures_rounds|first is mapping %} {% for pool in fixtures_rounds
+      %}
+      <h3>{{ pool.name }}</h3>
+      <div id="bracket-wrapper-{{ loop.index }}">
+        {% set total_rounds = pool.bracket|length %} {% set round_matches =
+        pool.bracket %} {% for rnd_idx in range(total_rounds) %} {% set matches
+        = round_matches[rnd_idx] %}
+        <div class="fixture-round" data-round="{{ rnd_idx }}">
+          <div class="round-title">
+            {% if rnd_idx == total_rounds - 1 %} Final {% elif rnd_idx ==
+            total_rounds - 2 %} Semi Final {% elif rnd_idx == total_rounds - 3
+            %} Quarter Final {% elif rnd_idx == total_rounds - 4 %} Pre-Quarter
+            {% else %} Round {{ rnd_idx + 1 }} {% endif %}
+          </div>
+          {% for match_idx in range(matches|length) %}
+          <div
+            class="match-card {% if matches[match_idx][1] is none %}bye-match{% endif %}"
+            data-match="{{ match_idx }}"
+            data-round="{{ rnd_idx }}"
+          >
+            {% if matches[match_idx][1] is none %} {{ matches[match_idx][0] }}
+            {% else %} {{ matches[match_idx][0] }} <strong>vs</strong> {{
+            matches[match_idx][1] }} {% endif %}
+          </div>
+          {% endfor %}
         </div>
-        <script>
-            // Call JavaScript functions for each pool
-            positionMatches('bracket-wrapper-{{ loop.index }}');
-            drawConnectors('bracket-wrapper-{{ loop.index }}', 'connectors-{{ loop.index }}');
-        </script>
-    {% endfor %}
-    {% else %}
-    <div id="bracket-wrapper">
-        {% set total_rounds = fixtures_rounds|length %}
-        {% set round_matches = fixtures_rounds %}
-        {% for rnd_idx in range(total_rounds) %}
-            {% set matches = round_matches[rnd_idx] %}
-            <div class="fixture-round" data-round="{{ rnd_idx }}">
-                <div class="round-title">
-                    {% if rnd_idx == total_rounds - 1 %}
-                        Final
-                    {% elif rnd_idx == total_rounds - 2 %}
-                        Semi Final
-                    {% elif rnd_idx == total_rounds - 3 %}
-                        Quarter Final
-                    {% elif rnd_idx == total_rounds - 4 %}
-                        Pre-Quarter
-                    {% else %}
-                        Round {{ rnd_idx + 1 }}
-                    {% endif %}
-                </div>
-                {% for match_idx in range(matches|length) %}
-                    <div class="match-card {% if matches[match_idx][1] is none %}bye-match{% endif %}" data-match="{{ match_idx }}" data-round="{{ rnd_idx }}">
-                        {% if matches[match_idx][1] is none %}
-                            {{ matches[match_idx][0] }}
-                        {% else %}
-                            {{ matches[match_idx][0] }} <strong>vs</strong> {{ matches[match_idx][1] }}
-                        {% endif %}
-                    </div>
-                {% endfor %}
-            </div>
+        {% endfor %}
+        <svg id="connectors-{{ loop.index }}">
+          <defs>
+            <marker
+              id="arrow"
+              markerWidth="10"
+              markerHeight="10"
+              refX="10"
+              refY="3"
+              orient="auto"
+              markerUnits="strokeWidth"
+            >
+              <path d="M0,0 L0,6 L9,3 z" fill="#ff6a00" />
+            </marker>
+          </defs>
+        </svg>
+      </div>
+      <script>
+        // Call JavaScript functions for each pool
+        positionMatches("bracket-wrapper-{{ loop.index }}");
+        drawConnectors(
+          "bracket-wrapper-{{ loop.index }}",
+          "connectors-{{ loop.index }}"
+        );
+      </script>
+      <script>
+        // Call JavaScript functions for each pool
+        positionMatches("bracket-wrapper-{{ loop.index }}");
+        drawConnectors(
+          "bracket-wrapper-{{ loop.index }}",
+          "connectors-{{ loop.index }}"
+        );
+      </script>
+      {% endfor %} {% else %}
+      <div id="bracket-wrapper">
+        {% set total_rounds = fixtures_rounds|length %} {% set round_matches =
+        fixtures_rounds %} {% for rnd_idx in range(total_rounds) %} {% set
+        matches = round_matches[rnd_idx] %}
+        <div class="fixture-round" data-round="{{ rnd_idx }}">
+          <div class="round-title">
+            {% if rnd_idx == total_rounds - 1 %} Final {% elif rnd_idx ==
+            total_rounds - 2 %} Semi Final {% elif rnd_idx == total_rounds - 3
+            %} Quarter Final {% elif rnd_idx == total_rounds - 4 %} Pre-Quarter
+            {% else %} Round {{ rnd_idx + 1 }} {% endif %}
+          </div>
+          {% for match_idx in range(matches|length) %}
+          <div
+            class="match-card {% if matches[match_idx][1] is none %}bye-match{% endif %}"
+            data-match="{{ match_idx }}"
+            data-round="{{ rnd_idx }}"
+          >
+            {% if matches[match_idx][1] is none %} {{ matches[match_idx][0] }}
+            {% else %} {{ matches[match_idx][0] }} <strong>vs</strong> {{
+            matches[match_idx][1] }} {% endif %}
+          </div>
+          {% endfor %}
+        </div>
         {% endfor %}
         <svg id="connectors">
-            <defs>
-                <marker id="arrow" markerWidth="10" markerHeight="10" refX="10" refY="3"
-                  orient="auto" markerUnits="strokeWidth">
-                    <path d="M0,0 L0,6 L9,3 z" fill="#ff6a00"/>
-                </marker>
-            </defs>
+          <defs>
+            <marker
+              id="arrow"
+              markerWidth="10"
+              markerHeight="10"
+              refX="10"
+              refY="3"
+              orient="auto"
+              markerUnits="strokeWidth"
+            >
+              <path d="M0,0 L0,6 L9,3 z" fill="#ff6a00" />
+            </marker>
+          </defs>
         </svg>
-    </div>
-    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-    <script>
+      </div>
+      <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+      <script>
         // --- Position Matches Professionally ---
-        function positionMatches() {
-            const rounds = document.querySelectorAll('.fixture-round');
-            const wrapper = document.getElementById('bracket-wrapper');
-            const verticalSpacing = 80;
+        // Accept optional wrapperId (for per-pool usage). If not provided, operate on the global wrapper.
+        function positionMatches(wrapperId) {
+          let wrapper = null;
+          if (wrapperId) wrapper = document.getElementById(wrapperId);
+          // rounds should be scoped within wrapper if possible
+          const rounds = wrapper
+            ? wrapper.querySelectorAll(".fixture-round")
+            : document.querySelectorAll(".fixture-round");
+          const verticalSpacing = 80;
 
-            if (rounds.length === 0) return;
+          if (!rounds || rounds.length === 0) return;
 
-            const totalFirstRoundSlots = rounds[0].querySelectorAll('.match-card').length;
-            let initialGap = (totalFirstRoundSlots * verticalSpacing) / 2;
+          const totalFirstRoundSlots =
+            rounds[0].querySelectorAll(".match-card").length;
 
-            rounds.forEach((round, rndIdx) => {
-                const matches = round.querySelectorAll('.match-card');
-                const gapMultiplier = Math.pow(2, rndIdx);
-                const currentRoundGap = gapMultiplier * verticalSpacing;
+          rounds.forEach((round, rndIdx) => {
+            const matches = round.querySelectorAll(".match-card");
+            const gapMultiplier = Math.pow(2, rndIdx);
+            const currentRoundGap = gapMultiplier * verticalSpacing;
 
-                matches.forEach((match, idx) => {
-                    const topPos = (idx * currentRoundGap) + (currentRoundGap / 2);
-                    match.style.top = topPos + 'px';
-                });
+            matches.forEach((match, idx) => {
+              const topPos = idx * currentRoundGap + currentRoundGap / 2;
+              match.style.top = topPos + "px";
+              // if wrapper exists, ensure match positioned relative to wrapper
+              if (wrapper) {
+                match.style.position = "absolute";
+              }
             });
+          });
 
-            const totalHeight = totalFirstRoundSlots * verticalSpacing;
-            wrapper.style.height = totalHeight + 'px';
+          const totalHeight = totalFirstRoundSlots * verticalSpacing;
+          if (wrapper) {
+            try {
+              wrapper.style.height = totalHeight + "px";
+            } catch (e) {}
+          } else {
+            const globalWrapper = document.getElementById("bracket-wrapper");
+            if (globalWrapper)
+              try {
+                globalWrapper.style.height = totalHeight + "px";
+              } catch (e) {}
+          }
         }
 
         // --- Draw Connector Lines ---
-        function drawConnectors() {
-            const svg = document.getElementById('connectors');
-            svg.innerHTML = '<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="10" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#ff6a00"/></marker></defs>';
+        // Accept optional wrapperId and connectorsId for per-pool usage
+        function drawConnectors(wrapperId, connectorsId) {
+          const wrapper = wrapperId
+            ? document.getElementById(wrapperId)
+            : document.getElementById("bracket-wrapper");
+          const svg = connectorsId
+            ? document.getElementById(connectorsId)
+            : document.getElementById("connectors");
+          if (!svg) return;
+          svg.innerHTML =
+            '<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="10" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#ff6a00"/></marker></defs>';
 
-            const rounds = document.querySelectorAll('.fixture-round');
+          const rounds = wrapper
+            ? wrapper.querySelectorAll(".fixture-round")
+            : document.querySelectorAll(".fixture-round");
+          const wrapperOffset = wrapper
+            ? wrapper.getBoundingClientRect()
+            : { left: 0, top: 0 };
 
-            for(let r=0; r<rounds.length-1; r++){
-                const current = rounds[r].querySelectorAll('.match-card');
-                const next = rounds[r+1].querySelectorAll('.match-card');
+          for (let r = 0; r < rounds.length - 1; r++) {
+            const current = rounds[r].querySelectorAll(".match-card");
+            const next = rounds[r + 1].querySelectorAll(".match-card");
 
-                for(let i=0; i<next.length; i++){
-                    const nextMatch = next[i];
-                    const parent1 = current[i*2];
-                    const parent2 = current[i*2+1];
-                    
-                    const n = nextMatch.getBoundingClientRect();
-                    const wrapperOffset = document.getElementById('bracket-wrapper').getBoundingClientRect();
-                    const endX = n.left - wrapperOffset.left;
-                    const endY = n.top + n.height/2 - wrapperOffset.top;
-                    
-                    // Draw lines for parent1
-                    if (parent1) {
-                        const p1 = parent1.getBoundingClientRect();
-                        const startX = p1.right - wrapperOffset.left;
-                        const startY = p1.top + p1.height/2 - wrapperOffset.top;
-                        
-                        const path = document.createElementNS('http://www.w3.org/2000/svg','path');
-                        path.setAttribute('d', `M${startX} ${startY} C ${(startX+endX)/2} ${startY}, ${(startX+endX)/2} ${endY}, ${endX} ${endY}`);
-                        path.setAttribute('stroke','#ff6a00');
-                        path.setAttribute('stroke-width','2');
-                        path.setAttribute('fill','none');
-                        path.setAttribute('marker-end','url(#arrow)');
-                        svg.appendChild(path);
-                    }
+            for (let i = 0; i < next.length; i++) {
+              const nextMatch = next[i];
+              const parent1 = current[i * 2];
+              const parent2 = current[i * 2 + 1];
 
-                    // Draw lines for parent2
-                    if (parent2) {
-                        const p2 = parent2.getBoundingClientRect();
-                        const startX = p2.right - wrapperOffset.left;
-                        const startY = p2.top + p2.height/2 - wrapperOffset.top;
-                        
-                        const path = document.createElementNS('http://www.w3.org/2000/svg','path');
-                        path.setAttribute('d', `M${startX} ${startY} C ${(startX+endX)/2} ${startY}, ${(startX+endX)/2} ${endY}, ${endX} ${endY}`);
-                        path.setAttribute('stroke','#ff6a00');
-                        path.setAttribute('stroke-width','2');
-                        path.setAttribute('fill','none');
-                        path.setAttribute('marker-end','url(#arrow)');
-                        svg.appendChild(path);
-                    }
-                }
+              const n = nextMatch.getBoundingClientRect();
+              const endX = n.left - wrapperOffset.left;
+              const endY = n.top + n.height / 2 - wrapperOffset.top;
+
+              // Draw lines for a parent element
+              function drawFor(parent) {
+                if (!parent) return;
+                const p = parent.getBoundingClientRect();
+                const startX = p.right - wrapperOffset.left;
+                const startY = p.top + p.height / 2 - wrapperOffset.top;
+                const path = document.createElementNS(
+                  "http://www.w3.org/2000/svg",
+                  "path"
+                );
+                path.setAttribute(
+                  "d",
+                  `M${startX} ${startY} C ${(startX + endX) / 2} ${startY}, ${
+                    (startX + endX) / 2
+                  } ${endY}, ${endX} ${endY}`
+                );
+                path.setAttribute("stroke", "#ff6a00");
+                path.setAttribute("stroke-width", "2");
+                path.setAttribute("fill", "none");
+                path.setAttribute("marker-end", "url(#arrow)");
+                svg.appendChild(path);
+              }
+
+              drawFor(parent1);
+              drawFor(parent2);
             }
+          }
         }
 
         // --- PNG Export ---
-        function exportBracketPNG() {
-            const node = document.getElementById('bracket-wrapper');
-            const originalBg = node.style.background;
-            node.style.background = 'linear-gradient(135deg, #e0eafc, #cfdef3)';
+        function exportBracketPNG(wrapperNode) {
+          // Choose node: explicit wrapperNode, single bracket-wrapper, pools grid, or first mini-bracket
+          let node = null;
+          if (wrapperNode) node = wrapperNode;
+          node =
+            node ||
+            document.getElementById("bracket-wrapper") ||
+            document.querySelector(".pools-grid") ||
+            document.querySelector(".mini-bracket");
+          if (!node) {
+            console.error("No bracket node found to export");
+            alert("No bracket found to export.");
+            return;
+          }
 
-            html2canvas(node, {scale:2, backgroundColor: null}).then(canvas => {
-                const link = document.createElement('a');
-                link.download = 'fixtures.png';
-                link.href = canvas.toDataURL('image/png');
-                link.click();
+          const originalBg = node.style.background;
+          try {
+            node.style.background = "linear-gradient(135deg, #e0eafc, #cfdef3)";
+          } catch (e) {}
+
+          // Save scroll position and scroll to top so html2canvas captures full element
+          const scrollX = window.scrollX || window.pageXOffset;
+          const scrollY = window.scrollY || window.pageYOffset;
+          try {
+            window.scrollTo(0, 0);
+          } catch (e) {}
+
+          // show a lightweight overlay while exporting
+          const loader = document.createElement("div");
+          loader.innerText = "Exporting PNG...";
+          loader.style.position = "fixed";
+          loader.style.left = "50%";
+          loader.style.top = "12px";
+          loader.style.transform = "translateX(-50%)";
+          loader.style.background = "#fff";
+          loader.style.padding = "8px 12px";
+          loader.style.borderRadius = "6px";
+          loader.style.boxShadow = "0 2px 8px rgba(0,0,0,0.2)";
+          loader.style.zIndex = 99999;
+          document.body.appendChild(loader);
+
+          const opts = {
+            scale: 2,
+            backgroundColor: null,
+            useCORS: true,
+            width: Math.ceil(node.scrollWidth),
+            height: Math.ceil(node.scrollHeight),
+            windowWidth: Math.ceil(node.scrollWidth),
+            windowHeight: Math.ceil(node.scrollHeight),
+          };
+
+          html2canvas(node, opts)
+            .then((canvas) => {
+              const link = document.createElement("a");
+              link.download = "fixtures.png";
+              link.href = canvas.toDataURL("image/png");
+              link.click();
+            })
+            .catch((err) => {
+              console.error("Export PNG failed", err);
+              alert(
+                "Export failed: " + (err && err.message ? err.message : err)
+              );
+            })
+            .finally(() => {
+              try {
                 node.style.background = originalBg;
+              } catch (e) {}
+              try {
+                window.scrollTo(scrollX, scrollY);
+              } catch (e) {}
+              try {
+                document.body.removeChild(loader);
+              } catch (e) {}
             });
         }
 
         // --- Init ---
-        window.addEventListener('load', () => {
+        window.addEventListener("load", () => {
+          // run global layout
+          try {
             positionMatches();
+          } catch (e) {
+            console.error("positionMatches error", e);
+          }
+          try {
             drawConnectors();
-        });
-        window.addEventListener('resize', () => {
-            positionMatches();
-            drawConnectors();
-        });
+          } catch (e) {
+            console.error("drawConnectors error", e);
+          }
 
-        document.getElementById('export-png').addEventListener('click', exportBracketPNG);
-    </script>
-    {% endif %}
+          // attach export handler (DOM guaranteed on load)
+          const exportBtn = document.getElementById("export-png");
+          if (exportBtn)
+            exportBtn.addEventListener("click", () => exportBracketPNG());
+        });
+        window.addEventListener("resize", () => {
+          positionMatches();
+          drawConnectors();
+        });
+      </script>
+      {% endif %}
 
-    <div class="btn-bottom">
+      <div class="btn-bottom">
         <a href="{{ url_for('index') }}" class="btn btn-primary me-2">⬅ Back</a>
         <button id="export-png" class="btn btn-info">Export PNG</button>
+      </div>
     </div>
-</div>
-
-</body>
+  </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

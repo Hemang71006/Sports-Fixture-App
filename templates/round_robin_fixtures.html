@@ -1,133 +1,262 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Professional Fixtures</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-<style>
-body.fixtures-body {
-    background: linear-gradient(135deg, #43cea2, #185a9d);
-    min-height: 100vh;
-    margin: 0;
-    padding-bottom: 80px; /* space for sticky buttons */
-}
+  <head>
+    <meta charset="UTF-8" />
+    <title>Professional Fixtures</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='style.css') }}"
+    />
+    <style>
+      body.fixtures-body {
+        background: linear-gradient(135deg, #43cea2, #185a9d);
+        min-height: 100vh;
+        margin: 0;
+        padding-bottom: 80px; /* space for sticky buttons */
+      }
 
-#fixture-list-wrapper {
-    max-width: 800px;
-    margin: 20px auto;
-    padding: 20px;
-    background: #fff;
-    border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-}
-
-.round-list {
-    list-style-type: none;
-    padding-left: 0;
-}
-
-.match-item {
-    background: #f8f9fa;
-    margin-bottom: 10px;
-    padding: 10px;
-    border-radius: 5px;
-    font-weight: bold;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.match-item strong {
-    color: #007bff;
-}
-
-.round-title {
-    font-weight: bold;
-    margin-top: 20px;
-    margin-bottom: 15px;
-    font-size: 1.5em;
-    color: #333;
-    border-bottom: 2px solid #ddd;
-    padding-bottom: 5px;
-}
-
-/* Print-specific styling */
-@media print {
-    body * {
-        visibility: hidden;
-    }
-    #fixture-list-wrapper, #fixture-list-wrapper * {
-        visibility: visible;
-    }
-    #fixture-list-wrapper {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        box-shadow: none;
+      #fixture-list-wrapper {
+        /* use most of the viewport width so round-columns can sit side-by-side */
+        max-width: calc(100% - 40px);
+        margin: 20px auto;
+        padding: 20px;
         background: #fff;
-    }
-    .btn-bottom {
-        display: none;
-    }
-}
-</style>
-</head>
-<body class="fixtures-body">
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      }
 
-<div class="container-fluid text-center">
-    <h1 class="mb-4">🏆 {{ tournament_name }}</h1>
-    <h2 class="mb-4">{{ ttype|capitalize }} Fixtures</h2>
+      .round-list {
+        list-style-type: none;
+        padding-left: 0;
+      }
 
-    <div id="fixture-list-wrapper">
-        {% for matches in fixtures_rounds %}
+      .match-item {
+        background: #f8f9fa;
+        margin-bottom: 10px;
+        padding: 10px;
+        border-radius: 5px;
+        font-weight: bold;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .match-item strong {
+        color: #007bff;
+      }
+
+      .round-title {
+        font-weight: bold;
+        margin-top: 20px;
+        margin-bottom: 15px;
+        font-size: 1.5em;
+        color: #333;
+        border-bottom: 2px solid #ddd;
+        padding-bottom: 5px;
+      }
+
+      /* rounds grid: responsive packing into rows (no horizontal scroll) */
+      .rounds-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 1rem;
+        align-items: start;
+        padding-bottom: 8px;
+      }
+
+      .round-column {
+        background: #fff;
+        border-radius: 8px;
+        padding: 12px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+      }
+
+      .round-column .round-title {
+        margin-top: 0;
+      }
+
+      .round-column .round-list {
+        /* each match on its own line for clarity */
+        column-count: 1;
+        column-gap: 12px;
+      }
+
+      @media (min-width: 1000px) {
+        /* keep single-column match lists even on wide screens */
+        .round-column .round-list {
+          column-count: 1;
+        }
+      }
+
+      /* Print-specific styling */
+      @media print {
+        body * {
+          visibility: hidden;
+        }
+        #fixture-list-wrapper,
+        #fixture-list-wrapper * {
+          visibility: visible;
+        }
+        #fixture-list-wrapper {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          box-shadow: none;
+          background: #fff;
+        }
+        .btn-bottom {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body class="fixtures-body">
+    <div class="container-fluid text-center">
+      <h1 class="mb-4">🏆 {{ tournament_name }}</h1>
+      <h2 class="mb-4">{{ ttype|capitalize }} Fixtures</h2>
+
+      <div class="d-flex justify-content-center mb-3 gap-2 align-items-center">
+        <input
+          id="team-filter"
+          class="form-control"
+          style="max-width: 360px"
+          placeholder="Search team fixtures (type to search)"
+        />
+      </div>
+
+      <div id="fixture-list-wrapper">
+        <div class="rounds-grid">
+          {% for matches in fixtures_rounds %}
+          <div class="round-column">
             <div class="round-title">
-                {% if loop.index0 == fixtures_rounds|length - 1 %}
-                    Final
-                {% elif loop.index0 == fixtures_rounds|length - 2 and fixtures_rounds|length > 2 and not (fixtures_rounds|length == 4 or fixtures_rounds|length == 3) %}
-                    Semi-Finals
-                {% else %}
-                    Round {{ loop.index }}
-                {% endif %}
+              {% if loop.index0 == fixtures_rounds|length - 1 %} Final {% elif
+              loop.index0 == fixtures_rounds|length - 2 and
+              fixtures_rounds|length > 2 and not (fixtures_rounds|length == 4 or
+              fixtures_rounds|length == 3) %} Semi-Finals {% else %} Round {{
+              loop.index }} {% endif %}
             </div>
             <ul class="round-list">
-                {% for match in matches %}
-                    <li class="match-item">
-                        <span>{{ match[0] }}</span> <strong>vs</strong> <span>{{ match[1] }}</span>
-                    </li>
-                {% endfor %}
+              {% for match in matches %}
+              <li class="match-item compact">
+                <span>{{ match[0] }}</span> <strong>vs</strong>
+                <span>{{ match[1] }}</span>
+              </li>
+              {% endfor %}
             </ul>
-        {% endfor %}
-    </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
 
-    <div class="btn-bottom">
+      <div
+        id="search-results"
+        style="max-width: 900px; margin: 18px auto; display: none"
+      >
+        <h4>Search results</h4>
+        <ul id="search-list" class="list-unstyled"></ul>
+        <div class="mb-3">
+          <button id="clear-search" class="btn btn-sm btn-outline-secondary">
+            Clear search
+          </button>
+        </div>
+      </div>
+
+      <div class="btn-bottom">
         <a href="{{ url_for('index') }}" class="btn btn-primary me-2">⬅ Back</a>
         <button id="export-png" class="btn btn-info">Export PNG</button>
+      </div>
     </div>
-</div>
 
-<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
-<script>
-// This section has been removed from this file to prevent conflicts
-// and is now only in knockout_fixtures.html
-function exportBracketPNG() {
-    const node = document.getElementById('fixture-list-wrapper');
-    const originalBg = document.body.style.background;
-    document.body.style.background = 'linear-gradient(135deg, #e0eafc, #cfdef3)';
+    <script>
+      // This section has been removed from this file to prevent conflicts
+      // and is now only in knockout_fixtures.html
+      function exportBracketPNG() {
+        const node = document.getElementById("fixture-list-wrapper");
+        const originalBg = document.body.style.background;
+        document.body.style.background =
+          "linear-gradient(135deg, #e0eafc, #cfdef3)";
 
-    html2canvas(node, {scale:2, backgroundColor: null}).then(canvas => {
-        const link = document.createElement('a');
-        link.download = 'fixtures.png';
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-        document.body.style.background = originalBg;
-    });
-}
+        html2canvas(node, { scale: 2, backgroundColor: null }).then(
+          (canvas) => {
+            const link = document.createElement("a");
+            link.download = "fixtures.png";
+            link.href = canvas.toDataURL("image/png");
+            link.click();
+            document.body.style.background = originalBg;
+          }
+        );
+      }
 
-document.getElementById('export-png').addEventListener('click', exportBracketPNG);
-</script>
+      document
+        .getElementById("export-png")
+        .addEventListener("click", exportBracketPNG);
+    </script>
 
-</body>
+    <script>
+      // Team filter: hides matches that don't contain the search term
+      const teamFilter = document.getElementById("team-filter");
+      teamFilter &&
+        teamFilter.addEventListener("input", function (e) {
+          const q = e.target.value.trim().toLowerCase();
+          const rounds = Array.from(document.querySelectorAll(".round-column"));
+          const searchResults = document.getElementById("search-results");
+          const searchList = document.getElementById("search-list");
+          const fixtureWrapper = document.getElementById(
+            "fixture-list-wrapper"
+          );
+
+          // Clear previous results
+          searchList.innerHTML = "";
+
+          if (!q) {
+            // show paged view (now all rounds visible)
+            searchResults.style.display = "none";
+            fixtureWrapper.style.display = "block";
+            // ensure all round-columns are visible
+            rounds.forEach((col) => (col.style.display = "block"));
+            return;
+          }
+
+          // Build results across all rounds
+          rounds.forEach((col, idx) => {
+            const roundTitle = col
+              .querySelector(".round-title")
+              .textContent.trim();
+            const matches = Array.from(col.querySelectorAll(".match-item"));
+            matches.forEach((m) => {
+              const text = m.textContent.toLowerCase();
+              if (text.indexOf(q) !== -1) {
+                const li = document.createElement("li");
+                li.className = "match-item mb-2 p-2";
+                li.innerHTML = `<strong>${roundTitle}</strong>: ${m.innerHTML}`;
+                searchList.appendChild(li);
+              }
+            });
+          });
+
+          // Show results and hide paginated view
+          fixtureWrapper.style.display = "none";
+          searchResults.style.display = "block";
+        });
+
+      // Clear search button
+      const clearSearch = document.getElementById("clear-search");
+      clearSearch &&
+        clearSearch.addEventListener("click", function () {
+          const teamFilter = document.getElementById("team-filter");
+          teamFilter.value = "";
+          teamFilter.dispatchEvent(new Event("input"));
+        });
+      // Initialize view: ensure rounds are visible
+      const roundCols = Array.from(document.querySelectorAll(".round-column"));
+      roundCols.forEach((col) => (col.style.display = "block"));
+    </script>
+  </body>
 </html>

@@ -1,265 +1,467 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
+  <head>
+    <meta charset="UTF-8" />
     <title>Sports Fixture Generator</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body class="index-body">
-<div class="container py-5">
-    <div class="card shadow-lg p-4 mx-auto index-card">
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='style.css') }}"
+    />
+  </head>
+  <body class="index-body">
+    <div class="container py-5">
+      <div class="card shadow-lg p-4 mx-auto index-card">
         <h1 class="text-center mb-4">🏆 Sports Fixture Generator</h1>
 
         <div id="validation-message" class="alert alert-danger d-none"></div>
 
         <ul class="nav nav-tabs mb-4" id="myTab" role="tablist">
-            <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="manual-tab" data-bs-toggle="tab" data-bs-target="#manual" type="button" role="tab">Manual Entry</button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button" role="tab">Upload File</button>
-            </li>
+          <li class="nav-item" role="presentation">
+            <button
+              class="nav-link active"
+              id="manual-tab"
+              data-bs-toggle="tab"
+              data-bs-target="#manual"
+              type="button"
+              role="tab"
+            >
+              Manual Entry
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button
+              class="nav-link"
+              id="upload-tab"
+              data-bs-toggle="tab"
+              data-bs-target="#upload"
+              type="button"
+              role="tab"
+            >
+              Upload File
+            </button>
+          </li>
         </ul>
 
         <div class="tab-content">
-            <div class="tab-pane fade show active" id="manual" role="tabpanel">
-                <form method="POST" id="manualForm" action="/">
-                    
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Tournament Name</label>
-                        <input type="text" name="tournament_name" class="form-control" placeholder="e.g. Annual Football Cup">
-                    </div>
+          <div class="tab-pane fade show active" id="manual" role="tabpanel">
+            <form method="POST" id="manualForm" action="/">
+              <div class="mb-3">
+                <label class="form-label fw-bold">Tournament Name</label>
+                <input
+                  type="text"
+                  name="tournament_name"
+                  class="form-control"
+                  placeholder="e.g. Annual Football Cup"
+                />
+              </div>
 
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Tournament Type</label>
-                        <select class="form-select" name="tournament_type" id="tournamentType" required>
-                            <option value="knockout">Knockout</option>
-                            <option value="round_robin">Round Robin</option>
-                        </select>
-                    </div>
+              <div class="mb-3">
+                <label class="form-label fw-bold">Tournament Type</label>
+                <select
+                  class="form-select"
+                  name="tournament_type"
+                  id="tournamentType"
+                  required
+                >
+                  <option value="knockout">Knockout</option>
+                  <option value="round_robin">Round Robin</option>
+                </select>
+              </div>
 
-                    <div id="paste-section" class="mb-3">
-                        <label class="form-label fw-bold">Load Teams from List</label>
-                        <textarea id="teamsPasteArea" class="form-control" rows="2" placeholder="Paste team names here, separated by commas (e.g., Team A, Team B, Team C)"></textarea>
-                        <button type="button" id="loadTeamsBtn" class="btn btn-secondary btn-sm mt-2 w-100">Load Teams from List</button>
-                        
-                        <div id="pasteByeInfo" class="alert alert-info mt-3 d-none"></div>
-                        <div id="teamsLoadedSummary" class="alert alert-success mt-3 d-none"></div>
-                    </div>
+              <div id="paste-section" class="mb-3">
+                <label class="form-label fw-bold">Load Teams from List</label>
+                <textarea
+                  id="teamsPasteArea"
+                  class="form-control"
+                  rows="2"
+                  placeholder="Paste team names here, separated by commas (e.g., Team A, Team B, Team C)"
+                ></textarea>
+                <button
+                  type="button"
+                  id="loadTeamsBtn"
+                  class="btn btn-secondary btn-sm mt-2 w-100"
+                >
+                  Load Teams from List
+                </button>
 
-                    <hr>
-                    
-                    <div id="teamInputsHidden" class="mb-3 d-none"></div>
+                <div
+                  id="pasteByeInfo"
+                  class="alert alert-info mt-3 d-none"
+                ></div>
+                <div
+                  id="teamsLoadedSummary"
+                  class="alert alert-success mt-3 d-none"
+                ></div>
+              </div>
 
-                    <div class="mb-3" id="top-seeds-group">
-                        <label class="form-label fw-bold">Top-Seeded Teams
-                            <span class="fa-solid fa-circle-question" data-bs-toggle="tooltip" data-bs-placement="top" title="Top-seeded teams receive byes and are placed to not meet in early rounds."></span>
-                        </label>
-                        <input type="text" name="top_seeds" id="topSeedsInput" class="form-control" placeholder="Team1, Team2">
-                    </div>
+              <hr />
 
-                    <input type="hidden" name="num_teams" id="numTeamsHidden">
+              <div id="teamInputsHidden" class="mb-3 d-none"></div>
 
-                    <button type="submit" class="btn btn-gradient w-100">Generate Fixtures</button>
-                </form>
-            </div>
+              <div class="mb-3" id="top-seeds-group">
+                <label class="form-label fw-bold"
+                  >Top-Seeded Teams
+                  <span
+                    class="fa-solid fa-circle-question"
+                    data-bs-toggle="tooltip"
+                    data-bs-placement="top"
+                    title="Top-seeded teams receive byes and are placed to not meet in early rounds."
+                  ></span>
+                </label>
+                <input
+                  type="text"
+                  name="top_seeds"
+                  id="topSeedsInput"
+                  class="form-control"
+                  placeholder="Team1, Team2"
+                />
+              </div>
 
-            <div class="tab-pane fade" id="upload" role="tabpanel">
-                <form method="POST" id="uploadForm" action="/upload" enctype="multipart/form-data">
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Tournament Name</label>
-                        <input type="text" name="tournament_name" class="form-control" placeholder="e.g. Annual Football Cup">
-                    </div>
+              <input type="hidden" name="num_teams" id="numTeamsHidden" />
 
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Tournament Type</label>
-                        <select class="form-select" name="tournament_type" id="uploadTournamentType" required>
-                            <option value="knockout">Knockout</option>
-                            <option value="round_robin">Round Robin</option>
-                        </select>
-                    </div>
+              <button type="submit" class="btn btn-gradient w-100">
+                Generate Fixtures
+              </button>
+            </form>
+          </div>
 
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Select Team File (.txt, .csv, .pdf, .docx)</label>
-                        <input type="file" name="file" class="form-control" accept=".txt,.csv,.pdf,.docx" required>
-                        <div class="form-text">One team name per line.</div>
-                    </div>
-                    <div class="mb-3" id="upload-top-seeds-group">
-                        <label class="form-label fw-bold">Top-Seeded Teams
-                            <span class="fa-solid fa-circle-question" data-bs-toggle="tooltip" data-bs-placement="top" title="Top-seeded teams receive byes and are placed to not meet in early rounds."></span>
-                        </label>
-                        <input type="text" name="top_seeds" class="form-control" placeholder="Team1, Team2">
-                    </div>
-                    <button type="submit" class="btn btn-gradient w-100">Generate Fixtures</button>
-                </form>
-            </div>
+          <div class="tab-pane fade" id="upload" role="tabpanel">
+            <form
+              method="POST"
+              id="uploadForm"
+              action="/upload"
+              enctype="multipart/form-data"
+            >
+              <div class="mb-3">
+                <label class="form-label fw-bold">Tournament Name</label>
+                <input
+                  type="text"
+                  name="tournament_name"
+                  class="form-control"
+                  placeholder="e.g. Annual Football Cup"
+                />
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label fw-bold">Tournament Type</label>
+                <select
+                  class="form-select"
+                  name="tournament_type"
+                  id="uploadTournamentType"
+                  required
+                >
+                  <option value="knockout">Knockout</option>
+                  <option value="round_robin">Round Robin</option>
+                </select>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label fw-bold"
+                  >Select Team File (.txt, .csv, .pdf, .docx)</label
+                >
+                <input
+                  id="uploadFileInput"
+                  type="file"
+                  name="file"
+                  class="form-control"
+                  accept=".txt,.csv,.pdf,.docx"
+                  required
+                />
+                <div class="form-text">One team name per line.</div>
+                <div
+                  id="uploadByeInfo"
+                  class="alert alert-info mt-3 d-none"
+                ></div>
+                <div
+                  id="uploadTeamsLoadedSummary"
+                  class="alert alert-success mt-3 d-none"
+                ></div>
+              </div>
+              <div class="mb-3" id="upload-top-seeds-group">
+                <label class="form-label fw-bold"
+                  >Top-Seeded Teams
+                  <span
+                    class="fa-solid fa-circle-question"
+                    data-bs-toggle="tooltip"
+                    data-bs-placement="top"
+                    title="Top-seeded teams receive byes and are placed to not meet in early rounds."
+                  ></span>
+                </label>
+                <input
+                  type="text"
+                  name="top_seeds"
+                  class="form-control"
+                  placeholder="Team1, Team2"
+                />
+              </div>
+              <button type="submit" class="btn btn-gradient w-100">
+                Generate Fixtures
+              </button>
+            </form>
+          </div>
         </div>
+      </div>
     </div>
-</div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-const teamInputsHiddenDiv = document.getElementById('teamInputsHidden');
-const manualForm = document.getElementById('manualForm');
-const teamsPasteArea = document.getElementById('teamsPasteArea');
-const loadTeamsBtn = document.getElementById('loadTeamsBtn');
-const tournamentTypeSelect = document.getElementById('tournamentType');
-const validationMessage = document.getElementById('validation-message');
-const topSeedsInput = document.getElementById('topSeedsInput');
-const pasteByeInfo = document.getElementById('pasteByeInfo');
-const teamsLoadedSummary = document.getElementById('teamsLoadedSummary');
-const numTeamsHiddenInput = document.getElementById('numTeamsHidden');
-const uploadTournamentTypeSelect = document.getElementById('uploadTournamentType');
-const uploadTopSeedsGroup = document.getElementById('upload-top-seeds-group');
-const topSeedsGroup = document.getElementById('top-seeds-group');
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      const teamInputsHiddenDiv = document.getElementById("teamInputsHidden");
+      const manualForm = document.getElementById("manualForm");
+      const teamsPasteArea = document.getElementById("teamsPasteArea");
+      const loadTeamsBtn = document.getElementById("loadTeamsBtn");
+      const tournamentTypeSelect = document.getElementById("tournamentType");
+      const validationMessage = document.getElementById("validation-message");
+      const topSeedsInput = document.getElementById("topSeedsInput");
+      const pasteByeInfo = document.getElementById("pasteByeInfo");
+      const teamsLoadedSummary = document.getElementById("teamsLoadedSummary");
+      const numTeamsHiddenInput = document.getElementById("numTeamsHidden");
+      const uploadTournamentTypeSelect = document.getElementById(
+        "uploadTournamentType"
+      );
+      const uploadTopSeedsGroup = document.getElementById(
+        "upload-top-seeds-group"
+      );
+      const topSeedsGroup = document.getElementById("top-seeds-group");
+      const uploadFileInput = document.getElementById("uploadFileInput");
+      const uploadByeInfo = document.getElementById("uploadByeInfo");
+      const uploadTeamsLoadedSummary = document.getElementById(
+        "uploadTeamsLoadedSummary"
+      );
+      let uploadTeamsCache = [];
 
+      // Function to generate team name input fields and update bye info
+      function generateTeamInputs(teams) {
+        const numTeams = teams.length;
+        teamInputsHiddenDiv.innerHTML = ""; // Clear previous inputs
 
-// Function to generate team name input fields and update bye info
-function generateTeamInputs(teams) {
-    const numTeams = teams.length;
-    teamInputsHiddenDiv.innerHTML = ''; // Clear previous inputs
-    
-    // 1. Create hidden inputs to send data to Flask
-    for (let i = 0; i < numTeams; i++) {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = `team${i + 1}`;
-        input.value = teams[i];
-        teamInputsHiddenDiv.appendChild(input);
-    }
-    
-    // 2. Set the value of the required 'num_teams' hidden field
-    numTeamsHiddenInput.value = numTeams;
+        // 1. Create hidden inputs to send data to Flask
+        for (let i = 0; i < numTeams; i++) {
+          const input = document.createElement("input");
+          input.type = "hidden";
+          input.name = `team${i + 1}`;
+          input.value = teams[i];
+          teamInputsHiddenDiv.appendChild(input);
+        }
 
-    // 3. Update bye info and summary messages
-    if (numTeams > 1 && tournamentTypeSelect.value === 'knockout') {
-        const nextPow2 = Math.pow(2, Math.ceil(Math.log2(numTeams)));
-        const byes = nextPow2 - numTeams;
-        
-        // Display the combined success/bye message
-        let byeMessage = byes > 0 ? `<ul><li>A knockout bracket will be generated with ${byes} byes.</li><li>Byes are given to the top-seeded teams.</li></ul>` : 'No BYEs needed';
-        
-        pasteByeInfo.innerHTML = byeMessage;
-        pasteByeInfo.classList.remove('d-none');
-        
-        teamsLoadedSummary.textContent = `Loaded ${numTeams} teams successfully.`;
-        teamsLoadedSummary.classList.remove('d-none');
-        
-    } else {
-        // Hide bye info for Round Robin or if less than 2 teams
-        pasteByeInfo.classList.add('d-none');
-        teamsLoadedSummary.textContent = `Loaded ${numTeams} teams successfully.`;
-        teamsLoadedSummary.classList.remove('d-none');
-    }
-}
+        // 2. Set the value of the required 'num_teams' hidden field
+        numTeamsHiddenInput.value = numTeams;
 
+        // 3. Update bye info and summary messages
+        if (numTeams > 1 && tournamentTypeSelect.value === "knockout") {
+          const nextPow2 = Math.pow(2, Math.ceil(Math.log2(numTeams)));
+          const byes = nextPow2 - numTeams;
 
-loadTeamsBtn.addEventListener('click', () => {
-    const pastedText = teamsPasteArea.value;
-    if (!pastedText) {
-        validationMessage.textContent = 'Please paste a list of team names.';
-        validationMessage.classList.remove('d-none');
-        return;
-    }
+          // Display the combined success/bye message
+          let byeMessage =
+            byes > 0
+              ? `<ul><li>A knockout bracket will be generated with ${byes} byes.</li><li>Byes are given to the top-seeded teams.</li></ul>`
+              : "No BYEs needed";
 
-    const teams = pastedText.split(',').map(team => team.trim()).filter(team => team !== '');
-    const numTeams = teams.length;
+          pasteByeInfo.innerHTML = byeMessage;
+          pasteByeInfo.classList.remove("d-none");
 
-    if (numTeams < 2 || numTeams > 64) {
-        validationMessage.textContent = 'Please enter between 2 and 64 teams.';
-        validationMessage.classList.remove('d-none');
-        return;
-    }
-    
-    validationMessage.classList.add('d-none');
-    generateTeamInputs(teams);
-});
+          teamsLoadedSummary.textContent = `Loaded ${numTeams} teams successfully.`;
+          teamsLoadedSummary.classList.remove("d-none");
+        } else {
+          // Hide bye info for Round Robin or if less than 2 teams
+          pasteByeInfo.classList.add("d-none");
+          teamsLoadedSummary.textContent = `Loaded ${numTeams} teams successfully.`;
+          teamsLoadedSummary.classList.remove("d-none");
+        }
+      }
 
+      loadTeamsBtn.addEventListener("click", () => {
+        const pastedText = teamsPasteArea.value;
+        if (!pastedText) {
+          validationMessage.textContent = "Please paste a list of team names.";
+          validationMessage.classList.remove("d-none");
+          return;
+        }
 
-function validateForm(e) {
-    // Prevent form submission by default
-    e.preventDefault();
-    
-    const teams = [];
-    const teamInputs = teamInputsHiddenDiv.querySelectorAll('input[name^="team"]');
-    const numTeams = teamInputs.length;
-    
-    // Check if any team names were generated
-    if (numTeams < 2) {
-        validationMessage.textContent = 'Please load a list of teams first.';
-        validationMessage.classList.remove('d-none');
-        return;
-    }
-    
-    // Collect team names for validation
-    for (const input of teamInputs) {
-        teams.push(input.value.trim());
-    }
+        const teams = pastedText
+          .split(",")
+          .map((team) => team.trim())
+          .filter((team) => team !== "");
+        const numTeams = teams.length;
 
-    // Check seed names only for knockout tournaments
-    if (tournamentTypeSelect.value === 'knockout') {
-        const topSeedsRaw = topSeedsInput.value.trim();
-        if (topSeedsRaw !== '') {
-            const topSeeds = topSeedsRaw.split(',').map(name => name.trim());
+        if (numTeams < 2 || numTeams > 64) {
+          validationMessage.textContent =
+            "Please enter between 2 and 64 teams.";
+          validationMessage.classList.remove("d-none");
+          return;
+        }
+
+        validationMessage.classList.add("d-none");
+        generateTeamInputs(teams);
+      });
+
+      function validateForm(e) {
+        // Prevent form submission by default
+        e.preventDefault();
+
+        const teams = [];
+        const teamInputs = teamInputsHiddenDiv.querySelectorAll(
+          'input[name^="team"]'
+        );
+        const numTeams = teamInputs.length;
+
+        // Check if any team names were generated
+        if (numTeams < 2) {
+          validationMessage.textContent = "Please load a list of teams first.";
+          validationMessage.classList.remove("d-none");
+          return;
+        }
+
+        // Collect team names for validation
+        for (const input of teamInputs) {
+          teams.push(input.value.trim());
+        }
+
+        // Check seed names only for knockout tournaments
+        if (tournamentTypeSelect.value === "knockout") {
+          const topSeedsRaw = topSeedsInput.value.trim();
+          if (topSeedsRaw !== "") {
+            const topSeeds = topSeedsRaw.split(",").map((name) => name.trim());
             const teamNamesSet = new Set(teams);
             for (const seed of topSeeds) {
-                if (!teamNamesSet.has(seed)) {
-                    validationMessage.textContent = `The seeded team "${seed}" was not found in the loaded team list.`;
-                    validationMessage.classList.remove('d-none');
-                    return;
-                }
+              if (!teamNamesSet.has(seed)) {
+                validationMessage.textContent = `The seeded team "${seed}" was not found in the loaded team list.`;
+                validationMessage.classList.remove("d-none");
+                return;
+              }
             }
+          }
         }
-    }
 
-    // If all checks pass, submit the form
-    validationMessage.classList.add('d-none');
-    e.target.submit();
-}
+        // If all checks pass, submit the form
+        validationMessage.classList.add("d-none");
+        e.target.submit();
+      }
 
-manualForm.addEventListener('submit', validateForm);
+      manualForm.addEventListener("submit", validateForm);
 
-// Hide/Show top-seeded teams input based on tournament type
-function toggleTopSeedsInput(selectElement, groupElement) {
-    if (selectElement.value === 'round_robin') {
-        groupElement.classList.add('d-none');
-    } else {
-        groupElement.classList.remove('d-none');
-    }
-}
+      // Hide/Show top-seeded teams input based on tournament type
+      function toggleTopSeedsInput(selectElement, groupElement) {
+        if (selectElement.value === "round_robin") {
+          groupElement.classList.add("d-none");
+        } else {
+          groupElement.classList.remove("d-none");
+        }
+      }
 
-tournamentTypeSelect.addEventListener('change', () => {
-    toggleTopSeedsInput(tournamentTypeSelect, topSeedsGroup);
-    // Re-run bye display logic when tournament type changes
-    const teams = Array.from(teamInputsHiddenDiv.querySelectorAll('input')).map(input => input.value);
-    if (teams.length > 0) {
-        generateTeamInputs(teams);
-    } else {
-        pasteByeInfo.classList.add('d-none');
-        teamsLoadedSummary.classList.add('d-none');
-    }
-});
-uploadTournamentTypeSelect.addEventListener('change', () => toggleTopSeedsInput(uploadTournamentTypeSelect, uploadTopSeedsGroup));
+      tournamentTypeSelect.addEventListener("change", () => {
+        toggleTopSeedsInput(tournamentTypeSelect, topSeedsGroup);
+        // Re-run bye display logic when tournament type changes
+        const teams = Array.from(
+          teamInputsHiddenDiv.querySelectorAll("input")
+        ).map((input) => input.value);
+        if (teams.length > 0) {
+          generateTeamInputs(teams);
+        } else {
+          pasteByeInfo.classList.add("d-none");
+          teamsLoadedSummary.classList.add("d-none");
+        }
+      });
+      uploadTournamentTypeSelect.addEventListener("change", () =>
+        toggleTopSeedsInput(uploadTournamentTypeSelect, uploadTopSeedsGroup)
+      );
 
-// Initial check on page load
-window.addEventListener('load', () => {
-    // Initialize tooltips
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl)
-    })
-});
-</script>
-</body>
+      // Generate upload preview summary (team count and byes for knockout)
+      function generateUploadSummary(teams) {
+        const numTeams = teams.length;
+        uploadTeamsCache = teams.slice();
+
+        if (numTeams < 1) {
+          uploadByeInfo.classList.add("d-none");
+          uploadTeamsLoadedSummary.classList.add("d-none");
+          return;
+        }
+
+        if (numTeams > 1 && uploadTournamentTypeSelect.value === "knockout") {
+          const nextPow2 = Math.pow(2, Math.ceil(Math.log2(numTeams)));
+          const byes = nextPow2 - numTeams;
+          let byeMessage =
+            byes > 0
+              ? `<ul><li>A knockout bracket will be generated with ${byes} byes.</li><li>Byes are given to the top-seeded teams.</li></ul>`
+              : "No BYEs needed";
+          uploadByeInfo.innerHTML = byeMessage;
+          uploadByeInfo.classList.remove("d-none");
+          uploadTeamsLoadedSummary.textContent = `Selected file contains ${numTeams} teams.`;
+          uploadTeamsLoadedSummary.classList.remove("d-none");
+        } else {
+          // Round Robin: only show number of teams
+          uploadByeInfo.classList.add("d-none");
+          uploadTeamsLoadedSummary.textContent = `Selected file contains ${numTeams} teams.`;
+          uploadTeamsLoadedSummary.classList.remove("d-none");
+        }
+      }
+
+      // Read selected file for client-side preview (supports .txt and .csv)
+      if (uploadFileInput) {
+        uploadFileInput.addEventListener("change", (e) => {
+          const file = e.target.files && e.target.files[0];
+          if (!file) {
+            uploadByeInfo.classList.add("d-none");
+            uploadTeamsLoadedSummary.classList.add("d-none");
+            uploadTeamsCache = [];
+            return;
+          }
+
+          const name = file.name.toLowerCase();
+          if (name.endsWith(".txt") || name.endsWith(".csv")) {
+            const reader = new FileReader();
+            reader.onload = function (ev) {
+              const text = ev.target.result || "";
+              // Split into lines and also handle single-line CSVs
+              let lines = text
+                .split(/\r?\n/)
+                .map((l) => l.trim())
+                .filter((l) => l !== "");
+              if (lines.length === 1 && lines[0].includes(",")) {
+                // CSV single line
+                lines = lines[0]
+                  .split(",")
+                  .map((s) => s.trim())
+                  .filter((s) => s !== "");
+              }
+              generateUploadSummary(lines);
+            };
+            reader.readAsText(file);
+          } else {
+            // Preview not available for binary/doc formats - server will handle on submit
+            uploadTeamsCache = [];
+            uploadByeInfo.classList.add("d-none");
+            uploadTeamsLoadedSummary.textContent = `Selected file: ${file.name} — preview not available for this file type. Server will process it on upload.`;
+            uploadTeamsLoadedSummary.classList.remove("d-none");
+          }
+        });
+      }
+
+      // Recompute upload preview when tournament type changes
+      uploadTournamentTypeSelect.addEventListener("change", () => {
+        if (uploadTeamsCache && uploadTeamsCache.length > 0) {
+          generateUploadSummary(uploadTeamsCache);
+        }
+      });
+
+      // Initial check on page load
+      window.addEventListener("load", () => {
+        // Initialize tooltips
+        var tooltipTriggerList = [].slice.call(
+          document.querySelectorAll('[data-bs-toggle="tooltip"]')
+        );
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+          return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+      });
+    </script>
+  </body>
 </html>
-
-
-
-
-
-
-
-
-

@@ -1,8 +1,14 @@
 from flask import Flask, render_template, request, redirect, url_for
 import math
 import random
-import PyPDF2
-import docx
+try:
+    import PyPDF2
+except Exception:
+    PyPDF2 = None
+try:
+    import docx
+except Exception:
+    docx = None
 
 app = Flask(__name__)
 
@@ -94,7 +100,7 @@ def generate_knockout(teams, top_seeds):
 
         rounds = [first_round_entries]
 
-        # Generate subsequent rounds with placeholder names
+        # Generate subsequent rounds with Winner placeholders
         current_round_size = math.ceil(len(first_round_entries) / 2)
         while current_round_size >= 1:
             rounds.append([("Winner", "Winner")] * current_round_size)
@@ -136,7 +142,6 @@ def generate_knockout(teams, top_seeds):
                 "name": f"Pool {chr(65 + i)}",
                 "bracket": generate_knockout(pool, top_seeds)
             })
-            
         return pool_brackets
 
 def generate_round_robin(teams):
@@ -195,8 +200,10 @@ def index():
         tournament_name = request.form.get("tournament_name", "Tournament")
 
         fixtures = generate_knockout(teams, top_seeds) if ttype == "knockout" else generate_round_robin(teams)
-        
+
         if ttype == "knockout":
+            if isinstance(fixtures, list) and fixtures and isinstance(fixtures[0], dict):
+                return render_template("knockout_fixtures.html", pools=fixtures, ttype=ttype, tournament_name=tournament_name, background_class="bg-default")
             return render_template("knockout_fixtures.html", fixtures_rounds=fixtures, ttype=ttype, tournament_name=tournament_name, background_class="bg-default")
         else:
             return render_template("round_robin_fixtures.html", fixtures_rounds=fixtures, ttype=ttype, tournament_name=tournament_name, background_class="bg-default")
@@ -235,8 +242,10 @@ def upload_teams():
             tournament_name = request.form.get("tournament_name", "Tournament")
 
             fixtures = generate_knockout(teams, top_seeds) if ttype == "knockout" else generate_round_robin(teams)
-            
+
             if ttype == "knockout":
+                if isinstance(fixtures, list) and fixtures and isinstance(fixtures[0], dict):
+                    return render_template("knockout_fixtures.html", pools=fixtures, ttype=ttype, tournament_name=tournament_name, background_class="bg-default")
                 return render_template("knockout_fixtures.html", fixtures_rounds=fixtures, ttype=ttype, tournament_name=tournament_name, background_class="bg-default")
             else:
                 return render_template("round_robin_fixtures.html", fixtures_rounds=fixtures, ttype=ttype, tournament_name=tournament_name, background_class="bg-default")

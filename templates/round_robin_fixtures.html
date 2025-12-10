@@ -168,35 +168,175 @@
 
       <div class="btn-bottom">
         <a href="{{ url_for('index') }}" class="btn btn-primary me-2">⬅ Back</a>
-        <button id="export-png" class="btn btn-info">Export PNG</button>
+        <button id="export-png" class="btn btn-info me-2">Export PNG</button>
+        <button id="export-pdf" class="btn btn-success">Export PDF</button>
       </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 
     <script>
       // This section has been removed from this file to prevent conflicts
       // and is now only in knockout_fixtures.html
       function exportBracketPNG() {
-        const node = document.getElementById("fixture-list-wrapper");
+        const node =
+          document.querySelector(".container-fluid.text-center") ||
+          document.getElementById("fixture-list-wrapper");
+        if (!node) {
+          alert("No content to export");
+          return;
+        }
         const originalBg = document.body.style.background;
         document.body.style.background =
           "linear-gradient(135deg, #e0eafc, #cfdef3)";
 
-        html2canvas(node, { scale: 2, backgroundColor: null }).then(
-          (canvas) => {
-            const link = document.createElement("a");
-            link.download = "fixtures.png";
-            link.href = canvas.toDataURL("image/png");
-            link.click();
+        // Hide buttons during export
+        const buttons = node.querySelector(".btn-bottom");
+        const origDisplay = buttons ? buttons.style.display : "";
+        if (buttons) buttons.style.display = "none";
+
+        html2canvas(node, {
+          scale: 3,
+          backgroundColor: null,
+          allowTaint: true,
+          useCORS: true,
+          logging: false,
+        }).then((canvas) => {
+          const link = document.createElement("a");
+          link.download = "fixtures.png";
+          link.href = canvas.toDataURL("image/png");
+          link.click();
+          document.body.style.background = originalBg;
+          if (buttons) buttons.style.display = origDisplay;
+        });
+      }
+
+      function exportBracketPDF() {
+        const node =
+          document.querySelector(".container-fluid.text-center") ||
+          document.getElementById("fixture-list-wrapper");
+        if (!node) {
+          alert("No content to export");
+          return;
+        }
+        const originalBg = document.body.style.background;
+        document.body.style.background =
+          "linear-gradient(135deg, #e0eafc, #cfdef3)";
+
+        const loader = document.createElement("div");
+        loader.innerText = "Exporting PDF...";
+        loader.style.cssText =
+          "position:fixed;left:50%;top:12px;transform:translateX(-50%);background:#fff;padding:8px 12px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.2);z-index:99999";
+        document.body.appendChild(loader);
+
+        // Hide buttons during export
+        const buttons = node.querySelector(".btn-bottom");
+        const origDisplay = buttons ? buttons.style.display : "";
+        if (buttons) buttons.style.display = "none";
+
+        html2canvas(node, {
+          scale: 2,
+          backgroundColor: null,
+          allowTaint: true,
+          useCORS: true,
+          logging: false,
+        })
+          .then((canvas) => {
+            const { jsPDF } = window.jspdf;
+            const pageWidth = 210; // A4 width in mm
+            const pageHeight = 297; // A4 height in mm
+            const margin = 10; // Page margin
+            const contentWidth = pageWidth - margin * 2;
+            const contentHeight = pageHeight - margin * 2;
+
+            // Calculate actual content height needed
+            const imgHeight = (canvas.height * contentWidth) / canvas.width;
+            const totalPages = Math.ceil(imgHeight / contentHeight);
+
+            const pdf = new jsPDF({
+              orientation: "portrait",
+              unit: "mm",
+              format: "a4",
+            });
+
+            let sourceY = 0;
+            const canvasWidth = canvas.width;
+
+            for (let page = 0; page < totalPages; page++) {
+              if (page > 0) {
+                pdf.addPage();
+              }
+
+              // Use more aggressive safety margin to keep round headers with their content
+              // This reduces the height used per page to avoid splitting headers from content
+              const pixelsPerMM = canvasWidth / contentWidth;
+              const maxCanvasHeightForPage = (contentHeight - 8) * pixelsPerMM; // 8mm safety buffer to avoid header-content split
+
+              const sliceCanvas = document.createElement("canvas");
+              sliceCanvas.width = canvasWidth;
+              sliceCanvas.height = Math.min(
+                Math.floor(maxCanvasHeightForPage),
+                canvas.height - sourceY
+              );
+
+              // Ensure we don't go beyond canvas bounds
+              if (sliceCanvas.height <= 0) break;
+
+              const ctx = sliceCanvas.getContext("2d");
+              ctx.fillStyle = "white";
+              ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
+
+              ctx.drawImage(
+                canvas,
+                0,
+                sourceY,
+                canvasWidth,
+                sliceCanvas.height,
+                0,
+                0,
+                canvasWidth,
+                sliceCanvas.height
+              );
+
+              const sliceData = sliceCanvas.toDataURL("image/png");
+              const sliceHeight =
+                (sliceCanvas.height * contentWidth) / canvasWidth;
+
+              // Add image with proper spacing
+              pdf.addImage(
+                sliceData,
+                "PNG",
+                margin,
+                margin,
+                contentWidth,
+                sliceHeight
+              );
+
+              sourceY += sliceCanvas.height;
+            }
+
+            pdf.save("fixtures.pdf");
+          })
+          .catch((err) => {
+            console.error("Export failed", err);
+            alert("Export failed: " + (err && err.message ? err.message : err));
+          })
+          .finally(() => {
+            if (buttons) buttons.style.display = origDisplay;
             document.body.style.background = originalBg;
-          }
-        );
+            try {
+              document.body.removeChild(loader);
+            } catch (e) {}
+          });
       }
 
       document
         .getElementById("export-png")
         .addEventListener("click", exportBracketPNG);
+
+      const pdfBtn = document.getElementById("export-pdf");
+      if (pdfBtn) pdfBtn.addEventListener("click", exportBracketPDF);
     </script>
 
     <script>

@@ -292,13 +292,18 @@
           .filter((team) => team !== "");
         const numTeams = teams.length;
 
-        if (numTeams < 2 || numTeams > 64) {
-          validationMessage.textContent =
-            "Please enter between 2 and 64 teams.";
+        if (numTeams < 2) {
+          validationMessage.textContent = "Please enter at least 2 teams.";
+          validationMessage.classList.remove("d-none");
+          return;
+        }
+        if (numTeams > 1024) {
+          validationMessage.textContent = "Maximum 1024 teams supported.";
           validationMessage.classList.remove("d-none");
           return;
         }
 
+        console.log("Teams loaded:", teams);
         validationMessage.classList.add("d-none");
         generateTeamInputs(teams);
       });
@@ -307,16 +312,22 @@
         // Prevent form submission by default
         e.preventDefault();
 
+        console.log("Form submitted, validating...");
+
         const teams = [];
         const teamInputs = teamInputsHiddenDiv.querySelectorAll(
           'input[name^="team"]'
         );
         const numTeams = teamInputs.length;
 
+        console.log("Found", numTeams, "teams in hidden inputs");
+
         // Check if any team names were generated
         if (numTeams < 2) {
-          validationMessage.textContent = "Please load a list of teams first.";
+          validationMessage.textContent =
+            "Please paste team names and click 'Load Teams from List' button first.";
           validationMessage.classList.remove("d-none");
+          console.log("Validation failed: less than 2 teams");
           return;
         }
 
@@ -324,6 +335,8 @@
         for (const input of teamInputs) {
           teams.push(input.value.trim());
         }
+
+        console.log("Extracted teams:", teams);
 
         // Check seed names only for knockout tournaments
         if (tournamentTypeSelect.value === "knockout") {
@@ -335,6 +348,7 @@
               if (!teamNamesSet.has(seed)) {
                 validationMessage.textContent = `The seeded team "${seed}" was not found in the loaded team list.`;
                 validationMessage.classList.remove("d-none");
+                console.log("Validation failed: seed not found");
                 return;
               }
             }
@@ -343,8 +357,15 @@
 
         // If all checks pass, submit the form
         validationMessage.classList.add("d-none");
-        e.target.submit();
+        console.log("Validation passed, submitting form...");
+
+        // Use setTimeout to ensure the form submits properly
+        setTimeout(() => {
+          manualForm.submit();
+        }, 100);
       }
+
+      manualForm.addEventListener("submit", validateForm);
 
       manualForm.addEventListener("submit", validateForm);
 

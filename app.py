@@ -15,9 +15,10 @@ app = Flask(__name__)
 def next_power_of_two(n):
     return 1 if n == 0 else 2 ** math.ceil(math.log2(n))
 
-def generate_knockout(teams, top_seeds):
+
+def generate_knockout(teams, top_seeds, preserve_order=False):
     total_teams = len(teams)
-    
+
     # Check if a single bracket is sufficient (32 teams or less)
     if total_teams <= 32:
         slots = next_power_of_two(total_teams)
@@ -25,11 +26,11 @@ def generate_knockout(teams, top_seeds):
 
         # Use sets for efficient lookup
         teams_set = set(teams)
-        
+
         # Separate teams who get byes and those who will play in the first round
         bye_teams = []
         first_round_participants = []
-        
+
         # First, allocate byes to the highest-seeded teams
         for team in top_seeds:
             if len(bye_teams) < num_byes and team in teams_set:
@@ -40,109 +41,161 @@ def generate_knockout(teams, top_seeds):
             if team not in bye_teams:
                 first_round_participants.append(team)
 
-        # Randomly shuffle the participants who will actually play
-        random.shuffle(first_round_participants)
+        # Randomly shuffle the participants who will actually play unless order is preserved
+        if not preserve_order:
+            random.shuffle(first_round_participants)
 
         # Combine byes and participants for the final first round order
         first_round_entries = []
-        
+
         # Pair up the participants
         for i in range(0, len(first_round_participants), 2):
             if i + 1 < len(first_round_participants):
-                first_round_entries.append((first_round_participants[i], first_round_participants[i+1]))
+                first_round_entries.append(
+                    (first_round_participants[i], first_round_participants[i + 1])
+                )
             else:
                 # If an odd team is left, give it a bye
                 bye_teams.append(first_round_participants[i])
-                
+
         # Add the bye teams to the list of matches as a team with a "None" opponent
         for team in bye_teams:
             first_round_entries.append((team, None))
-            
+
         # --- Seeding Logic for Top Four Teams ---
         # Find the matches containing the top four seeds
-        seed_matches = {i+1: None for i in range(len(top_seeds))}
-        
+        seed_matches = {i + 1: None for i in range(len(top_seeds))}
+
         for i, seed_name in enumerate(top_seeds):
             for match in first_round_entries:
                 if seed_name in match:
-                    seed_matches[i+1] = match
+                    seed_matches[i + 1] = match
                     break
-        
+
         # Place #2 seed's match at the top
         if seed_matches.get(2):
             seed2_match = seed_matches[2]
             seed2_index = first_round_entries.index(seed2_match)
-            first_round_entries[0], first_round_entries[seed2_index] = first_round_entries[seed2_index], first_round_entries[0]
+            first_round_entries[0], first_round_entries[seed2_index] = (
+                first_round_entries[seed2_index],
+                first_round_entries[0],
+            )
 
         # Place #1 seed's match at the bottom
         if seed_matches.get(1):
             seed1_match = seed_matches[1]
-            seed1_index = first_round_entries.index(seed1_match) # Re-find index in case of a swap
+            seed1_index = first_round_entries.index(seed1_match)  # Re-find index in case of a swap
             last_index = len(first_round_entries) - 1
-            first_round_entries[last_index], first_round_entries[seed1_index] = first_round_entries[seed1_index], first_round_entries[last_index]
+            first_round_entries[last_index], first_round_entries[seed1_index] = (
+                first_round_entries[seed1_index],
+                first_round_entries[last_index],
+            )
 
         # Place #4 seed's match at the top of the bottom half (index len/2)
         if seed_matches.get(4):
             seed4_match = seed_matches[4]
             seed4_index = first_round_entries.index(seed4_match)
             halfway_index = len(first_round_entries) // 2
-            first_round_entries[halfway_index], first_round_entries[seed4_index] = first_round_entries[seed4_index], first_round_entries[halfway_index]
+            first_round_entries[halfway_index], first_round_entries[seed4_index] = (
+                first_round_entries[seed4_index],
+                first_round_entries[halfway_index],
+            )
 
         # Place #3 seed's match at the bottom of the top half (index len/2 - 1)
         if seed_matches.get(3):
             seed3_match = seed_matches[3]
             seed3_index = first_round_entries.index(seed3_match)
             halfway_index = len(first_round_entries) // 2
-            first_round_entries[halfway_index - 1], first_round_entries[seed3_index] = first_round_entries[seed3_index], first_round_entries[halfway_index - 1]
-
+            first_round_entries[halfway_index - 1], first_round_entries[seed3_index] = (
+                first_round_entries[seed3_index],
+                first_round_entries[halfway_index - 1],
+            )
 
         # --- End of Seeding Logic ---
 
         rounds = [first_round_entries]
 
-        # Generate subsequent rounds with Winner placeholders
-        current_round_size = math.ceil(len(first_round_entries) / 2)
-        while current_round_size >= 1:
-            rounds.append([("Winner", "Winner")] * current_round_size)
-            current_round_size //= 2
-        
+        # Generate subsequent rounds with explicit Winner-vs-Winner placeholders
+        num_matches = len(first_round_entries)
+        while num_matches > 1:
+            # Each match produces one winner, so next round has half as many matches (ceil for odd)
+            num_matches = (num_matches + 1) // 2
+            next_round = [("Winner", "Winner") for _ in range(num_matches)]
+            rounds.append(next_round)
+
         return rounds
 
-    else: # If more than 32 teams, divide into pools
-        # Find the next power of two for the total number of teams
-        next_pow2 = next_power_of_two(total_teams)
-        
-        # Determine number of pools
-        num_pools = (next_pow2 // 32)
-        if num_pools == 0:
-            num_pools = 1
-        
-        # Divide teams as evenly as possible among pools
-        teams_per_pool = total_teams // num_pools
-        remainder = total_teams % num_pools
-        
+    # If more than 32 teams, divide into pools
+    next_pow2 = next_power_of_two(total_teams)
+
+    # Determine number of pools
+    num_pools = next_pow2 // 32
+    if num_pools == 0:
+        num_pools = 1
+
+    # Divide teams as evenly as possible among pools
+    teams_per_pool = total_teams // num_pools
+    remainder = total_teams % num_pools
+
+    if not preserve_order:
         random.shuffle(teams)
+
+    pools = []
+    start_index = 0
+    for i in range(num_pools):
+        pool_size = teams_per_pool
+        if remainder > 0:
+            pool_size += 1
+            remainder -= 1
+
+        pool_teams = teams[start_index : start_index + pool_size]
+        pools.append(pool_teams)
+        start_index += pool_size
+
+    # Generate brackets for each pool
+    pool_brackets = []
+    pool_champions = []
+    
+    for i, pool in enumerate(pools):
+        bracket = generate_knockout(pool, top_seeds)
         
-        pools = []
-        start_index = 0
-        for i in range(num_pools):
-            pool_size = teams_per_pool
-            if remainder > 0:
-                pool_size += 1
-                remainder -= 1
-            
-            pool_teams = teams[start_index:start_index + pool_size]
-            pools.append(pool_teams)
-            start_index += pool_size
+        # Calculate byes for this pool
+        pool_size = len(pool)
+        slots = next_power_of_two(pool_size)
+        num_byes = slots - pool_size
         
-        # Generate brackets for each pool
-        pool_brackets = []
-        for i, pool in enumerate(pools):
-            pool_brackets.append({
+        pool_brackets.append(
+            {
                 "name": f"Pool {chr(65 + i)}",
-                "bracket": generate_knockout(pool, top_seeds)
-            })
-        return pool_brackets
+                "bracket": bracket,
+                "team_count": pool_size,
+                "bye_count": num_byes,
+            }
+        )
+        # Extract the champion from the final round (last team in the final match)
+        if bracket and len(bracket) > 0:
+            final_round = bracket[-1]
+            if final_round and len(final_round) > 0:
+                final_match = final_round[0]
+                # The winner is represented as ("Winner", "Winner"), use pool name + champion
+                champion_name = f"Pool {chr(65 + i)} Champion"
+                pool_champions.append(champion_name)
+    
+    # Add champions bracket if there are multiple pools
+    if len(pool_brackets) > 1:
+        champions_bracket = generate_knockout(pool_champions, [])
+        pool_brackets.append(
+            {
+                "name": "Pool Winners Playoff",
+                "bracket": champions_bracket,
+                "is_champions": True,
+                "team_count": len(pool_champions),
+                "bye_count": 0,
+            }
+        )
+    
+    return pool_brackets
+
 
 def generate_round_robin(teams):
     num_teams = len(teams)
@@ -185,6 +238,9 @@ def generate_round_robin(teams):
 @app.route("/", methods=["GET", "POST"])
 def index():
     if request.method == "POST":
+        print("DEBUG: POST request received")
+        print(f"DEBUG: Form data keys: {list(request.form.keys())}")
+        
         # Determine teams based on whether the input came from 'num_teams' or the dynamic 'team' inputs
         if 'num_teams' in request.form and request.form["num_teams"]:
             num_teams = int(request.form["num_teams"])
@@ -193,17 +249,25 @@ def index():
             # Handle list paste submissions (where num_teams is derived from the count of 'teamX' keys)
             teams = [request.form[key] for key in request.form if key.startswith('team')]
             num_teams = len(teams)
+        
+        print(f"DEBUG: Extracted {num_teams} teams: {teams}")
             
         top_seeds_raw = request.form.get("top_seeds", "")
         top_seeds = [x.strip() for x in top_seeds_raw.split(",") if x.strip()] if top_seeds_raw else []
         ttype = request.form["tournament_type"]
         tournament_name = request.form.get("tournament_name", "Tournament")
 
+        print(f"DEBUG: Tournament type: {ttype}, name: {tournament_name}")
+        print(f"DEBUG: Top seeds: {top_seeds}")
+
         fixtures = generate_knockout(teams, top_seeds) if ttype == "knockout" else generate_round_robin(teams)
 
+        print(f"DEBUG: Generated fixtures, type: {type(fixtures)}")
+        if isinstance(fixtures, list) and fixtures and isinstance(fixtures[0], dict):
+            print("DEBUG: Returning pools template")
+            return render_template("knockout_fixtures.html", pools=fixtures, ttype=ttype, tournament_name=tournament_name, background_class="bg-default")
+        print("DEBUG: Returning regular fixtures template")
         if ttype == "knockout":
-            if isinstance(fixtures, list) and fixtures and isinstance(fixtures[0], dict):
-                return render_template("knockout_fixtures.html", pools=fixtures, ttype=ttype, tournament_name=tournament_name, background_class="bg-default")
             return render_template("knockout_fixtures.html", fixtures_rounds=fixtures, ttype=ttype, tournament_name=tournament_name, background_class="bg-default")
         else:
             return render_template("round_robin_fixtures.html", fixtures_rounds=fixtures, ttype=ttype, tournament_name=tournament_name, background_class="bg-default")

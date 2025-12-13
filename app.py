@@ -36,6 +36,18 @@ def generate_knockout(teams, top_seeds, preserve_order=False):
             if len(bye_teams) < num_byes and team in teams_set:
                 bye_teams.append(team)
 
+        # If we still need more byes, add random teams from non-seeded teams
+        if len(bye_teams) < num_byes:
+            # Get all non-seeded teams
+            non_seeded = [t for t in teams if t not in bye_teams]
+            # Shuffle them to randomly select additional byes
+            if not preserve_order:
+                random.shuffle(non_seeded)
+            # Add enough to reach num_byes
+            for team in non_seeded:
+                if len(bye_teams) < num_byes:
+                    bye_teams.append(team)
+
         # Add remaining teams to playing teams list
         for team in teams:
             if team not in bye_teams:
@@ -139,28 +151,42 @@ def generate_knockout(teams, top_seeds, preserve_order=False):
         
         # Fill remaining positions with other teams
         # We need to fill num_positions (16 for 32-bracket) with all teams
-        # Byes get (team, None), playing teams need to be paired
         
         remaining_playing = [t for t in playing_teams if t not in used_teams]
         remaining_byes = [t for t in bye_teams if t not in used_teams]
         
-        # First, place all remaining byes
+        # Place remaining byes in empty seed positions (where missing seeds would be)
+        # Find which seed positions are empty
+        empty_seed_positions = []
+        for seed_num in range(1, 17):  # Seeds 1-16
+            if seed_num in seed_to_position:
+                pos = seed_to_position[seed_num]
+                if first_round_entries[pos] is None:
+                    empty_seed_positions.append(pos)
+        
+        # Place remaining byes in these empty seed positions
         bye_idx = 0
-        for pos in range(num_positions):
-            if first_round_entries[pos] is None and bye_idx < len(remaining_byes):
+        for pos in empty_seed_positions:
+            if bye_idx < len(remaining_byes):
                 first_round_entries[pos] = (remaining_byes[bye_idx], None)
                 bye_idx += 1
         
-        # Then, place remaining playing teams in pairs in empty positions
+        # Place any leftover byes in remaining empty positions
+        if bye_idx < len(remaining_byes):
+            for pos in range(num_positions):
+                if first_round_entries[pos] is None and bye_idx < len(remaining_byes):
+                    first_round_entries[pos] = (remaining_byes[bye_idx], None)
+                    bye_idx += 1
+        
+        # Place remaining playing teams in pairs in empty positions
         play_idx = 0
         for pos in range(num_positions):
             if first_round_entries[pos] is None:
                 if play_idx < len(remaining_playing):
-                    # Find the next empty position to pair with
                     team1 = remaining_playing[play_idx]
                     play_idx += 1
                     
-                    # Look for next empty position for team2
+                    # Try to pair with next team
                     team2 = None
                     if play_idx < len(remaining_playing):
                         team2 = remaining_playing[play_idx]
@@ -171,7 +197,7 @@ def generate_knockout(teams, top_seeds, preserve_order=False):
                     else:
                         first_round_entries[pos] = (team1, None)
         
-        # Convert any remaining single team entries to tuples
+        # Convert any remaining single team placeholders to byes
         final_entries = []
         for entry in first_round_entries:
             if entry is None:

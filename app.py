@@ -27,90 +27,162 @@ def generate_knockout(teams, top_seeds, preserve_order=False):
         # Use sets for efficient lookup
         teams_set = set(teams)
 
-        # Separate teams who get byes and those who will play in the first round
+        # Separate teams who get byes and those who will play
         bye_teams = []
-        first_round_participants = []
+        playing_teams = []
 
         # First, allocate byes to the highest-seeded teams
         for team in top_seeds:
             if len(bye_teams) < num_byes and team in teams_set:
                 bye_teams.append(team)
 
-        # Add any remaining teams to the participants list
+        # Add remaining teams to playing teams list
         for team in teams:
             if team not in bye_teams:
-                first_round_participants.append(team)
+                playing_teams.append(team)
 
-        # Randomly shuffle the participants who will actually play unless order is preserved
+        # Randomly shuffle the playing teams unless order is preserved
         if not preserve_order:
-            random.shuffle(first_round_participants)
+            random.shuffle(playing_teams)
 
-        # Combine byes and participants for the final first round order
-        first_round_entries = []
-
-        # Pair up the participants
-        for i in range(0, len(first_round_participants), 2):
-            if i + 1 < len(first_round_participants):
-                first_round_entries.append(
-                    (first_round_participants[i], first_round_participants[i + 1])
-                )
-            else:
-                # If an odd team is left, give it a bye
-                bye_teams.append(first_round_participants[i])
-
-        # Add the bye teams to the list of matches as a team with a "None" opponent
-        for team in bye_teams:
-            first_round_entries.append((team, None))
-
-        # --- Seeding Logic for Top Four Teams ---
-        # Find the matches containing the top four seeds
-        seed_matches = {i + 1: None for i in range(len(top_seeds))}
-
+        # Build seed_info dictionary
+        seed_info = {}
         for i, seed_name in enumerate(top_seeds):
-            for match in first_round_entries:
-                if seed_name in match:
-                    seed_matches[i + 1] = match
-                    break
-
-        # Place #2 seed's match at the top
-        if seed_matches.get(2):
-            seed2_match = seed_matches[2]
-            seed2_index = first_round_entries.index(seed2_match)
-            first_round_entries[0], first_round_entries[seed2_index] = (
-                first_round_entries[seed2_index],
-                first_round_entries[0],
-            )
-
-        # Place #1 seed's match at the bottom
-        if seed_matches.get(1):
-            seed1_match = seed_matches[1]
-            seed1_index = first_round_entries.index(seed1_match)  # Re-find index in case of a swap
-            last_index = len(first_round_entries) - 1
-            first_round_entries[last_index], first_round_entries[seed1_index] = (
-                first_round_entries[seed1_index],
-                first_round_entries[last_index],
-            )
-
-        # Place #4 seed's match at the top of the bottom half (index len/2)
-        if seed_matches.get(4):
-            seed4_match = seed_matches[4]
-            seed4_index = first_round_entries.index(seed4_match)
-            halfway_index = len(first_round_entries) // 2
-            first_round_entries[halfway_index], first_round_entries[seed4_index] = (
-                first_round_entries[seed4_index],
-                first_round_entries[halfway_index],
-            )
-
-        # Place #3 seed's match at the bottom of the top half (index len/2 - 1)
-        if seed_matches.get(3):
-            seed3_match = seed_matches[3]
-            seed3_index = first_round_entries.index(seed3_match)
-            halfway_index = len(first_round_entries) // 2
-            first_round_entries[halfway_index - 1], first_round_entries[seed3_index] = (
-                first_round_entries[seed3_index],
-                first_round_entries[halfway_index - 1],
-            )
-
+            if seed_name in teams_set:
+                seed_info[i + 1] = seed_name
+        
+        # Create bracket: slots/2 positions (16 for 32-slot bracket)
+        num_positions = slots // 2
+        first_round_entries = [None] * num_positions
+        
+        # Seeding: define which POSITION (0-15 for 32 bracket) each seed goes to
+        # Reverse NCAA seeding: Seed 2 at top, Seed 1 at bottom
+        if slots == 32:
+            seed_to_position = {
+                # Position 0-1: Seed 2 vs Seed 15
+                2: 0,      # Seed 2
+                15: 1,     # Seed 15
+                
+                # Position 2-3: Seed 7 vs Seed 10
+                10: 2,     # Seed 10
+                7: 3,      # Seed 7
+                
+                # Position 4-5: Seed 6 vs Seed 11
+                6: 4,      # Seed 6
+                11: 5,     # Seed 11
+                
+                # Position 6-7: Seed 3 vs Seed 14
+                14: 6,     # Seed 14
+                3: 7,      # Seed 3
+                
+                # Position 8-9: Seed 4 vs Seed 13
+                4: 8,      # Seed 4
+                13: 9,     # Seed 13
+                
+                # Position 10-11: Seed 5 vs Seed 12
+                12: 10,    # Seed 12
+                5: 11,     # Seed 5
+                
+                # Position 12-13: Seed 8 vs Seed 9
+                8: 12,     # Seed 8
+                9: 13,     # Seed 9
+                
+                # Position 14-15: Seed 1 vs Seed 16
+                16: 14,    # Seed 16
+                1: 15,     # Seed 1
+            }
+        elif slots == 16:
+            seed_to_position = {
+                # Top half (0-3): Seeds 2 and 3
+                2: 0,      # Seed 2 at top
+                3: 3,      # Seed 3 at bottom of top half
+                6: 1,      # Seed 6
+                7: 2,      # Seed 7
+                10: 1,     11: 2,    14: 1,    15: 2,
+                
+                # Bottom half (4-7): Seeds 1 and 4
+                1: 7,      # Seed 1 at bottom
+                4: 4,      # Seed 4 at top of bottom half
+                5: 5,      # Seed 5
+                8: 6,      # Seed 8
+                9: 4,      12: 6,    13: 5,    16: 6,
+            }
+        elif slots == 8:
+            seed_to_position = {
+                # Top half (0-1): Seeds 2 and 3
+                2: 0,      # Seed 2
+                3: 1,      # Seed 3
+                6: 1,      7: 1,
+                
+                # Bottom half (2-3): Seeds 1 and 4
+                1: 3,      # Seed 1
+                4: 2,      # Seed 4
+                5: 2,      8: 3,
+            }
+        elif slots == 4:
+            seed_to_position = {
+                2: 0,      1: 1,
+            }
+        else:
+            seed_to_position = {}
+        
+        # Place seeds in their bracket positions
+        used_teams = set()
+        for seed_num, pos in seed_to_position.items():
+            if seed_num in seed_info and pos < num_positions:
+                seed_name = seed_info[seed_num]
+                if seed_name in bye_teams:
+                    first_round_entries[pos] = (seed_name, None)
+                else:
+                    first_round_entries[pos] = seed_name  # Placeholder
+                used_teams.add(seed_name)
+        
+        # Fill remaining positions with other teams
+        # We need to fill num_positions (16 for 32-bracket) with all teams
+        # Byes get (team, None), playing teams need to be paired
+        
+        remaining_playing = [t for t in playing_teams if t not in used_teams]
+        remaining_byes = [t for t in bye_teams if t not in used_teams]
+        
+        # First, place all remaining byes
+        bye_idx = 0
+        for pos in range(num_positions):
+            if first_round_entries[pos] is None and bye_idx < len(remaining_byes):
+                first_round_entries[pos] = (remaining_byes[bye_idx], None)
+                bye_idx += 1
+        
+        # Then, place remaining playing teams in pairs in empty positions
+        play_idx = 0
+        for pos in range(num_positions):
+            if first_round_entries[pos] is None:
+                if play_idx < len(remaining_playing):
+                    # Find the next empty position to pair with
+                    team1 = remaining_playing[play_idx]
+                    play_idx += 1
+                    
+                    # Look for next empty position for team2
+                    team2 = None
+                    if play_idx < len(remaining_playing):
+                        team2 = remaining_playing[play_idx]
+                        play_idx += 1
+                    
+                    if team2:
+                        first_round_entries[pos] = (team1, team2)
+                    else:
+                        first_round_entries[pos] = (team1, None)
+        
+        # Convert any remaining single team entries to tuples
+        final_entries = []
+        for entry in first_round_entries:
+            if entry is None:
+                continue
+            elif isinstance(entry, tuple):
+                final_entries.append(entry)
+            else:
+                final_entries.append((entry, None))
+        
+        first_round_entries = final_entries
+        
         # --- End of Seeding Logic ---
 
         rounds = [first_round_entries]

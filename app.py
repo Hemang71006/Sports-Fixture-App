@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for
 import math
 import random
+import re
 try:
     import PyPDF2
 except Exception:
@@ -15,8 +16,88 @@ app = Flask(__name__)
 def next_power_of_two(n):
     return 1 if n == 0 else 2 ** math.ceil(math.log2(n))
 
+def get_pool_seed_to_position(pool_seeds, slots, pool_type="A"):
+    """
+    Generate seed_to_position mapping for a pool based on LOCAL seed indices (1-N).
+    Handles variable number of seeds (7, 8, etc.) by adjusting the seeding pattern.
+    """
+    seed_to_position = {}
+    
+    if slots == 32 and len(pool_seeds) >= 2:
+        # Get the best and 2nd best seeds in this pool
+        sorted_pool_seeds = sorted(pool_seeds, key=lambda x: int(x.replace('Team', '').replace('Seed', '').strip()))
+        best_seed_num = int(sorted_pool_seeds[0].replace('Team', '').replace('Seed', '').strip())
+        second_best_seed_num = int(sorted_pool_seeds[1].replace('Team', '').replace('Seed', '').strip())
+        
+        # Find LOCAL positions of these seeds
+        best_seed_local = None
+        second_best_seed_local = None
+        for i, seed in enumerate(pool_seeds, 1):
+            seed_num = int(seed.replace('Team', '').replace('Seed', '').strip())
+            if seed_num == best_seed_num:
+                best_seed_local = i
+            elif seed_num == second_best_seed_num:
+                second_best_seed_local = i
+        
+        if best_seed_local and second_best_seed_local:
+            # For 4 pools: A/C place best on top, B/D place best on bottom
+            if pool_type in ("A", "C"):
+                # Best at position 0 (top), 2nd best at position 15 (bottom)
+                top_local = best_seed_local
+                bottom_local = second_best_seed_local
+            else:  # "B" or "D"
+                # 2nd best at position 0, Best at position 15
+                top_local = second_best_seed_local
+                bottom_local = best_seed_local
+            
+            # NCAA seeding pattern for 32-slot bracket
+            seed_to_position = {
+                top_local: 0,           # Strategic top → position 0
+                bottom_local: 15,       # Strategic bottom → position 15
+            }
+            
+            # Fill remaining seeds in NCAA pattern positions
+            remaining_locals = [i for i in range(1, len(pool_seeds) + 1) if i != top_local and i != bottom_local]
+            remaining_positions = [8, 7, 4, 11, 12, 3]  # NCAA pattern for remaining seeds
+            for local_seed, position in zip(remaining_locals, remaining_positions):
+                seed_to_position[local_seed] = position
+                
+    elif slots == 16 and len(pool_seeds) >= 2:
+        sorted_pool_seeds = sorted(pool_seeds, key=lambda x: int(x.replace('Team', '').replace('Seed', '').strip()))
+        best_seed_num = int(sorted_pool_seeds[0].replace('Team', '').replace('Seed', '').strip())
+        second_best_seed_num = int(sorted_pool_seeds[1].replace('Team', '').replace('Seed', '').strip())
+        
+        best_seed_local = None
+        second_best_seed_local = None
+        for i, seed in enumerate(pool_seeds, 1):
+            seed_num = int(seed.replace('Team', '').replace('Seed', '').strip())
+            if seed_num == best_seed_num:
+                best_seed_local = i
+            elif seed_num == second_best_seed_num:
+                second_seed_local = i
+        
+        if pool_type == "A":
+            seed_to_position = {1: 0, 2: 7, 3: 4, 4: 3}
+        else:
+            seed_to_position = {2: 0, 1: 7, 3: 4, 4: 3}
+            
+    elif slots == 8 and len(pool_seeds) >= 2:
+        if pool_type == "A":
+            seed_to_position = {1: 0, 2: 3}
+        else:
+            seed_to_position = {2: 0, 1: 3}
+    elif slots == 4 and len(pool_seeds) >= 2:
+        if pool_type == "A":
+            seed_to_position = {1: 0, 2: 1}
+        else:
+            seed_to_position = {2: 0, 1: 1}
+    
+    return seed_to_position
 
-def generate_knockout(teams, top_seeds, preserve_order=False):
+
+
+
+def generate_knockout(teams, top_seeds, preserve_order=False, pool_type=None):
     total_teams = len(teams)
 
     # Check if a single bracket is sufficient (32 teams or less)
@@ -69,7 +150,10 @@ def generate_knockout(teams, top_seeds, preserve_order=False):
         
         # Seeding: define which POSITION (0-15 for 32 bracket) each seed goes to
         # Reverse NCAA seeding: Seed 2 at top, Seed 1 at bottom
-        if slots == 32:
+        if pool_type:
+            # Use pool-specific seeding
+            seed_to_position = get_pool_seed_to_position(top_seeds, slots, pool_type)
+        elif slots == 32:
             seed_to_position = {
                 # Position 0-1: Seed 2 vs Seed 15
                 2: 0,      # Seed 2
@@ -231,31 +315,167 @@ def generate_knockout(teams, top_seeds, preserve_order=False):
     if num_pools == 0:
         num_pools = 1
 
-    # Divide teams as evenly as possible among pools
-    teams_per_pool = total_teams // num_pools
-    remainder = total_teams % num_pools
+    # Define seed distribution for pools to ensure proper matchups
+    # Seeds are distributed so that 1 and 2 only meet in finals
+    # These are SEED POSITIONS (1-16), but we need to handle cases with fewer seeds
+    num_seeds = len(top_seeds)
+    
+    if num_pools == 2:
+        if num_seeds >= 8:
+            # For 2 pools, support up to 32 seeds (16 per pool)
+            # Pool A: Seeds 2,3,6,7,10,11,14,15,18,19,22,23,26,27,30,31
+            # Pool B: Seeds 1,4,5,8,9,12,13,16,17,20,21,24,25,28,29,32
+            pool_a_seeds = []
+            pool_b_seeds = []
+            
+            # Pattern: Pool A gets 2,3,6,7 then 10,11,14,15 then 18,19,22,23 etc.
+            # Pool B gets 1,4,5,8,9 then 12,13,16,17 then 20,21,24,25 etc.
+            for block_start in range(1, 33, 8):  # 1, 9, 17, 25
+                if block_start <= num_seeds:
+                    # Pool B gets first seed of each block
+                    pool_b_seeds.append(block_start)
+                    # Pool A gets 2nd and 3rd
+                    if block_start + 1 <= num_seeds:
+                        pool_a_seeds.append(block_start + 1)
+                    if block_start + 2 <= num_seeds:
+                        pool_a_seeds.append(block_start + 2)
+                    # Pool B gets 4th and 5th
+                    if block_start + 3 <= num_seeds:
+                        pool_b_seeds.append(block_start + 3)
+                    if block_start + 4 <= num_seeds:
+                        pool_b_seeds.append(block_start + 4)
+                    # Pool A gets 6th and 7th
+                    if block_start + 5 <= num_seeds:
+                        pool_a_seeds.append(block_start + 5)
+                    if block_start + 6 <= num_seeds:
+                        pool_a_seeds.append(block_start + 6)
+                    # Pool B gets 8th
+                    if block_start + 7 <= num_seeds:
+                        pool_b_seeds.append(block_start + 7)
+            
+            desired_pool_seeds = [pool_a_seeds, pool_b_seeds]
+        else:
+            # For fewer than 8 seeds, distribute evenly
+            desired_pool_seeds = [[], []]
+            for seed_pos in range(1, num_seeds + 1):
+                pool_idx = (seed_pos - 1) % 2
+                desired_pool_seeds[pool_idx].append(seed_pos)
+    elif num_pools == 4:
+        if num_seeds >= 8:
+            # For 4 pools, support up to 32 seeds (8 per pool)
+            # Pool A: 2,7,10,15,18,23,26,31
+            # Pool B: 3,6,11,14,19,22,27,30
+            # Pool C: 4,5,12,13,20,21,28,29
+            # Pool D: 1,8,9,16,17,24,25,32
+            pool_a_seeds = []
+            pool_b_seeds = []
+            pool_c_seeds = []
+            pool_d_seeds = []
+            
+            for block_start in range(1, 33, 8):  # 1, 9, 17, 25
+                if block_start <= num_seeds:
+                    pool_d_seeds.append(block_start)
+                if block_start + 1 <= num_seeds:
+                    pool_a_seeds.append(block_start + 1)
+                if block_start + 2 <= num_seeds:
+                    pool_b_seeds.append(block_start + 2)
+                if block_start + 3 <= num_seeds:
+                    pool_c_seeds.append(block_start + 3)
+                if block_start + 4 <= num_seeds:
+                    pool_c_seeds.append(block_start + 4)
+                if block_start + 5 <= num_seeds:
+                    pool_b_seeds.append(block_start + 5)
+                if block_start + 6 <= num_seeds:
+                    pool_a_seeds.append(block_start + 6)
+                if block_start + 7 <= num_seeds:
+                    pool_d_seeds.append(block_start + 7)
+            
+            desired_pool_seeds = [pool_a_seeds, pool_b_seeds, pool_c_seeds, pool_d_seeds]
+        else:
+            # For fewer seeds, distribute evenly
+            desired_pool_seeds = [[] for _ in range(4)]
+            for seed_pos in range(1, num_seeds + 1):
+                pool_idx = (seed_pos - 1) % 4
+                desired_pool_seeds[pool_idx].append(seed_pos)
+    else:
+        # For other pool counts, use simple alternating distribution
+        desired_pool_seeds = [[] for _ in range(num_pools)]
+        for seed_pos in range(1, num_seeds + 1):
+            pool_idx = (seed_pos - 1) % num_pools
+            desired_pool_seeds[pool_idx].append(seed_pos)
 
+    # Extract seeded teams for each pool by matching seed NUMBER (not position in list)
+    pool_top_seeds = []
+    
+    # First, identify seed numbers in the team names
+    seed_number_to_team = {}
+    for seed_team in top_seeds:
+        # Extract the number from team name (e.g., "Team5" -> 5, "Seed 3" -> 3, "1" -> 1)
+        match = re.search(r'\d+', seed_team)
+        if match:
+            seed_num = int(match.group())
+            seed_number_to_team[seed_num] = seed_team
+    
+    # Now distribute seeds to pools by their actual seed NUMBER
+    for pool_idx in range(num_pools):
+        pool_seeds = []
+        for seed_pos in desired_pool_seeds[pool_idx]:
+            # Find the team with this seed number
+            if seed_pos in seed_number_to_team:
+                pool_seeds.append(seed_number_to_team[seed_pos])
+        pool_top_seeds.append(pool_seeds)
+
+    # Divide teams as evenly as possible among pools
+    # Distribute seeded teams first, then non-seeded teams
+    teams_set = set(top_seeds)
+    non_seeded_teams = [t for t in teams if t not in teams_set]
+    
     if not preserve_order:
-        random.shuffle(teams)
+        random.shuffle(non_seeded_teams)
 
     pools = []
-    start_index = 0
+    non_seeded_idx = 0
     for i in range(num_pools):
-        pool_size = teams_per_pool
-        if remainder > 0:
-            pool_size += 1
-            remainder -= 1
-
-        pool_teams = teams[start_index : start_index + pool_size]
-        pools.append(pool_teams)
-        start_index += pool_size
+        # Each pool gets its designated seeded teams
+        pool_seeds = pool_top_seeds[i]
+        
+        # Calculate how many non-seeded teams this pool needs
+        # Total teams per pool should be roughly equal
+        teams_for_pool = []
+        teams_for_pool.extend(pool_seeds)
+        
+        # Add non-seeded teams
+        avg_non_seeded_per_pool = len(non_seeded_teams) // num_pools
+        remainder_non_seeded = len(non_seeded_teams) % num_pools
+        
+        non_seeded_count = avg_non_seeded_per_pool
+        if i < remainder_non_seeded:
+            non_seeded_count += 1
+        
+        for _ in range(non_seeded_count):
+            if non_seeded_idx < len(non_seeded_teams):
+                teams_for_pool.append(non_seeded_teams[non_seeded_idx])
+                non_seeded_idx += 1
+        
+        pools.append(teams_for_pool)
 
     # Generate brackets for each pool
     pool_brackets = []
     pool_champions = []
     
     for i, pool in enumerate(pools):
-        bracket = generate_knockout(pool, top_seeds)
+        # Seeds for this pool are already embedded in pool_top_seeds[i]
+        pool_seeds = pool_top_seeds[i]
+        
+        # Determine pool type for seeding pattern
+        if num_pools == 2:
+            pool_type = "A" if i == 0 else "B"
+        elif num_pools == 4:
+            pool_type = chr(65 + i)  # "A", "B", "C", "D"
+        else:
+            pool_type = None
+        
+        bracket = generate_knockout(pool, pool_seeds, pool_type=pool_type)
         
         # Calculate byes for this pool
         pool_size = len(pool)
